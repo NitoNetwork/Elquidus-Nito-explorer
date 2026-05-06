@@ -1,0 +1,20 @@
+# Runtime secrets
+settings.json
+.env
+.env.*
+*.pem
+*.key
+*.cookie
+
+# Runtime data and logs
+node_modules/
+tmp/
+logs/
+*.log
+*.pid
+*.dump
+dump.rdb
+
+# Local editor files
+.vscode/
+.idea/
