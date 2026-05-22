@@ -166,7 +166,8 @@ if (lib.is_locked([deleteLockName]) == false) {
       console.log(`${settings.localization.script_launched }: ${process.pid}`);
 
     const mongoose = require('mongoose');
-    const dbString = `mongodb://${encodeURIComponent(settings.dbsettings.user)}:${encodeURIComponent(settings.dbsettings.password)}@${settings.dbsettings.address}:${settings.dbsettings.port}/${settings.dbsettings.database}`;
+    const db = require('../lib/database');
+    const dbString = db.get_database_connection_string();
 
     console.log('Connecting to database..');
 

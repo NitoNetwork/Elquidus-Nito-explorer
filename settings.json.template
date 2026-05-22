@@ -15,6 +15,9 @@
     "password": "CHANGE_ME_PASSWORD",
     // database: The MongoDB database name (default: nito_explorerdb)
     "database": "nito_explorerdb",
+    // auth_source: Optional MongoDB authentication database when it differs from the explorer database.
+    //              Leave blank to authenticate against the same database named above.
+    "auth_source": "",
     // address: The MongoDB hostname. This should always be 'localhost' if connecting to a local instance, otherwise specify the ip address of a remote instance
     "address": "localhost",
     // port: The port # that MongoDB is configured to listen for requests on (default: 27017)

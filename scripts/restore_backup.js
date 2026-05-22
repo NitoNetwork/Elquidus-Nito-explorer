@@ -83,7 +83,8 @@ function drop_collection(mongoose, colName, cb) {
 }
 
 function delete_database(mongoose, cb) {
-  const dbString = `mongodb://${encodeURIComponent(settings.dbsettings.user)}:${encodeURIComponent(settings.dbsettings.password)}@${settings.dbsettings.address}:${settings.dbsettings.port}/${settings.dbsettings.database}`;
+  const db = require('../lib/database');
+  const dbString = db.get_database_connection_string();
 
   console.log('Connecting to database..');
 
@@ -134,7 +135,8 @@ function restore_backup(mongoose, backupPath, extractedPath, gZip) {
   console.log(`${settings.localization.restoring_backup}.. ${settings.localization.please_wait}..`);
 
   // restore mongo database from backup
-  const restoreProcess = exec(`mongorestore --host="${settings.dbsettings.address}" --port="${settings.dbsettings.port}" --username="${settings.dbsettings.user}" --password="${settings.dbsettings.password}" --authenticationDatabase="${settings.dbsettings.database}" ${(gZip ? `--gzip --archive="${backupPath}"` : `"${extractedPath}"`)}`);
+  const authenticationDatabase = settings.dbsettings.auth_source || settings.dbsettings.authSource || settings.dbsettings.authenticationDatabase || settings.dbsettings.database;
+  const restoreProcess = exec(`mongorestore --host="${settings.dbsettings.address}" --port="${settings.dbsettings.port}" --username="${settings.dbsettings.user}" --password="${settings.dbsettings.password}" --authenticationDatabase="${authenticationDatabase}" ${(gZip ? `--gzip --archive="${backupPath}"` : `"${extractedPath}"`)}`);
 
   restoreProcess.stdout.on('data', (data) => {
     console.log(data);

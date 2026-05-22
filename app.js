@@ -450,15 +450,22 @@ app.use('/ext/getaddress/:hash', function(req, res) {
                   tx_type = 'vout',
                   row = {};
 
-              txs[i].vout.forEach(function (r) {
-                if (r.addresses == req.params.hash)
-                  out += r.amount;
-              });
+              if (typeof txs[i].address_amount === 'number') {
+                if (txs[i].address_amount >= 0)
+                  out = txs[i].address_amount;
+                else
+                  vin = Math.abs(txs[i].address_amount);
+              } else {
+                txs[i].vout.forEach(function (r) {
+                  if (r.addresses == req.params.hash)
+                    out += r.amount;
+                });
 
-              txs[i].vin.forEach(function (s) {
-                if (s.addresses == req.params.hash)
-                  vin += s.amount;
-              });
+                txs[i].vin.forEach(function (s) {
+                  if (s.addresses == req.params.hash)
+                    vin += s.amount;
+                });
+              }
 
               if (vin > out)
                 tx_type = 'vin';
@@ -686,15 +693,22 @@ app.use('/ext/getaddresstxs/:address/:start/:length', function(req, res) {
           var out = 0;
           var vin = 0;
 
-          txs[i].vout.forEach(function(r) {
-            if (r.addresses == req.params.address)
-              out += r.amount;
-          });
+          if (typeof txs[i].address_amount === 'number') {
+            if (txs[i].address_amount >= 0)
+              out = txs[i].address_amount;
+            else
+              vin = Math.abs(txs[i].address_amount);
+          } else {
+            txs[i].vout.forEach(function(r) {
+              if (r.addresses == req.params.address)
+                out += r.amount;
+            });
 
-          txs[i].vin.forEach(function(s) {
-            if (s.addresses == req.params.address)
-              vin += s.amount;
-          });
+            txs[i].vin.forEach(function(s) {
+              if (s.addresses == req.params.address)
+                vin += s.amount;
+            });
+          }
 
           if (internal) {
             var row = [];

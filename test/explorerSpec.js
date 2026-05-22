@@ -94,6 +94,23 @@ describe('explorer', function() {
     });
   });
 
+  describe('nito private tx markers', function() {
+    it('should detect the Nito v4 private transaction flag from raw hex', function() {
+      expect(lib.is_nito_private_tx({hex: '0200000000020000'})).toEqual(true);
+      expect(lib.is_nito_private_tx({hex: '0200000000010000'})).toEqual(false);
+    });
+
+    it('should add private Orchard markers without a public address', function() {
+      var result = lib.apply_nito_private_markers({has_private_bundle: true, vin: [], vout: []}, [], [], null);
+
+      expect(result.tx_type).toEqual('nito_orchard');
+      expect(result.vin[0].addresses).toEqual('private_orchard');
+      expect(result.vin[0].amount_hidden).toEqual(true);
+      expect(result.vout[0].addresses).toEqual('private_orchard');
+      expect(result.vout[0].amount_hidden).toEqual(true);
+    });
+  });
+
   describe('calculate_total', function() {
     var originalTimeout;
 

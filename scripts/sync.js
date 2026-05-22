@@ -965,11 +965,7 @@ if (lib.is_locked([database]) == false) {
       }
     }
 
-    var dbString = 'mongodb://' + encodeURIComponent(settings.dbsettings.user);
-    dbString = dbString + ':' + encodeURIComponent(settings.dbsettings.password);
-    dbString = dbString + '@' + settings.dbsettings.address;
-    dbString = dbString + ':' + settings.dbsettings.port;
-    dbString = dbString + '/' + settings.dbsettings.database;
+    var dbString = db.get_database_connection_string();
 
     mongoose.set('strictQuery', true);
 

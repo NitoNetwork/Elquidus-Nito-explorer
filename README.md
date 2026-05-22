@@ -17,6 +17,24 @@ This repository contains the explorer application and public deployment examples
 - Rich list and holder pages
 - Address label claim system
 - Public API endpoints for explorer data
+- Nito v4 private Orchard transaction markers without indexing Bech32x recipients
+
+## Nito v4 Orchard Display
+
+The explorer remains compatible with the transparent v3 chain. When connected to
+a v4 node and a block contains private Orchard data, the explorer displays a
+privacy-safe `Private Orchard input/output` marker for the transaction. It does
+not index `nito1x` recipients, does not create searchable private address
+balances, and keeps private-only transactions visible by txid/block without
+inventing public amounts.
+
+For best results, run against a Nito Core build that exposes
+`has_private_bundle` and `private_bundle` in verbose transaction RPC output.
+The explorer also has a defensive fallback that detects the v4 private flag from
+raw transaction hex.
+
+See [docs/nito-v4-orchard.md](docs/nito-v4-orchard.md) for the indexing,
+display and maintenance rules used by the Nito v4 explorer fork.
 
 ## Installation
 
@@ -58,6 +76,10 @@ db.createUser({
   roles: [{ role: 'readWrite', db: 'nito_explorerdb' }]
 })
 ~~~
+
+If you run an isolated test explorer database with a MongoDB user authenticated
+against another database, set `dbsettings.auth_source` in `settings.json`.
+Leave it blank for the standard single-database deployment.
 
 ## Application Setup
 

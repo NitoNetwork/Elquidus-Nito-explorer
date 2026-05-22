@@ -111,7 +111,7 @@ function get_block_data_from_wallet(block, res, orphan) {
 
               loop.next();
             });
-          });
+          }, tx);
         });
       } else
         loop.next();
@@ -266,7 +266,7 @@ function route_get_tx(res, txid) {
                     }
                   }
                 });
-              });
+              }, rtx);
             });
           } else
             route_get_txlist(res, null);
