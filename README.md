@@ -23,7 +23,7 @@ This repository contains the explorer application and public deployment examples
 
 The explorer remains compatible with the transparent v3 chain. When connected to
 a v4 node and a block contains private Orchard data, the explorer displays a
-privacy-safe `Private Orchard input/output` marker for the transaction. It does
+privacy-safe `Bech32x...` marker for private Orchard transaction sides. It does
 not index `nito1x` recipients, does not create searchable private address
 balances, and keeps private-only transactions visible by txid/block without
 inventing public amounts.

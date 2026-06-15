@@ -12,8 +12,8 @@ balances to `nito1x...` addresses.
 
 Private transactions are displayed with privacy-safe markers:
 
-- `Private Orchard input` for private value leaving Orchard;
-- `Private Orchard output` for private value entering Orchard;
+- `Bech32x...` for private value leaving Orchard;
+- `Bech32x...` for private value entering Orchard;
 - `Hidden` for pure Orchard-to-Orchard value that is not public.
 
 Transparent-only transactions keep the classic eIquidus display path.
