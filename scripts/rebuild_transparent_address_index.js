@@ -32,7 +32,7 @@ function loadIni(filePath) {
 }
 
 const conf = loadIni(CONF_PATH);
-const rpcPort = Number(conf.rpcport || 8821);
+const rpcPort = Number(conf.rpcport || 8825);
 const rpcAuth = Buffer.from(`${conf.rpcuser}:${conf.rpcpassword}`).toString('base64');
 const agent = new http.Agent({keepAlive: true, maxSockets: 4});
 let rpcId = 0;

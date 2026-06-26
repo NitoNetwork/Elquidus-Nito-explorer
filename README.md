@@ -33,6 +33,14 @@ For best results, run against a Nito Core build that exposes
 The explorer also has a defensive fallback that detects the v4 private flag from
 raw transaction hex.
 
+Compared with a v3-only eIquidus deployment, the v4 requirements are:
+
+- run against a Nito Core node with `txindex=1`;
+- keep address pages and rich lists transparent-only;
+- show private Orchard sides as markers, not searchable public addresses;
+- rebuild the transparent address index if an older test index created invalid
+  private pseudo-balances.
+
 See [docs/nito-v4-orchard.md](docs/nito-v4-orchard.md) for the indexing,
 display and maintenance rules used by the Nito v4 explorer fork.
 
@@ -99,12 +107,17 @@ pm2 start ./bin/instance --name explorer
 pm2 save
 ~~~
 
-Run a first sync manually, then install a cron job for continuous indexing.
+Run a first sync manually, then keep block sync running through your supervisor.
 
 ~~~bash
 node scripts/sync.js index update
 node scripts/sync.js market update
+npm run sync-blocks-loop
 ~~~
+
+The `sync-blocks-loop` script is a simple continuous indexer loop. It is useful
+for PM2/systemd deployments where a one-shot `sync-blocks` command would exit
+after one pass.
 
 ## Nginx Reverse Proxy
 
@@ -129,6 +142,10 @@ pm2 status explorer
 curl -k https://explorer.nito.network/ext/getsummary
 curl -k https://explorer.nito.network/ext/getlasttxs/0/0/10/internal
 ~~~
+
+For a v4 deployment, also verify one transparent-only transaction and one
+transaction containing a private Orchard bundle. The private page should show
+privacy-safe markers and must not create searchable `nito1x...` balance pages.
 
 ## Security Notes
 
