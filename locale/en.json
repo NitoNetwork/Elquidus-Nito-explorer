@@ -1,5 +1,27 @@
-/* This file must be valid JSON. But comments are allowed */
 {
+  "nito_unavailable": "Unavailable",
+  "nito_private_address": "Orchard addresses have no public balance or searchable transaction history.",
+  "nito_transparent": "Transparent UTXO value",
+  "nito_orchard": "Orchard pool value",
+  "nito_total": "Accounted chain value",
+  "nito_pool_scope": "Confirmed chain value includes immature rewards. Lost keys cannot be deducted. This is not theoretical issuance, maximum supply or a circulation estimate.",
+  "nito_private_scope": "Orchard recipient addresses and individual amounts are private. The value balance is a net transfer between pools, not private transfer volume.",
+  "nito_incomplete": "Public transaction metadata is incomplete. Unavailable values are not zero.",
+  "nito_actions": "Orchard actions",
+  "nito_balance": "Net value from Orchard (negative: into Orchard)",
+  "nito_fee": "Known fee",
+  "nito_outputs": "Transparent outputs",
+  "nito_inputs": "Transparent inputs",
+  "nito_output_value": "Transparent output value",
+  "nito_rich_scope": "Transparent addresses only. Percentages use the transparent UTXO pool at the stated block. Addresses are not individual owners; cumulative receipts are not balances.",
+  "nito_privacy": "Privacy",
+  "nito_no_outputs": "No transparent outputs",
+  "nito_no_inputs": "No transparent inputs",
+  "nito_orphan": "Orphaned transaction",
+  "nito_address_scope": "Transparent address balance and history",
+  "nito_other": "Other transparent scripts",
+  "nito_chart_scope": "Chart proportions are rounded for display; exact amounts are listed below.",
+
   // global
   "difficulty": "Difficulty",
   "masternodecount": "Masternodes",
@@ -78,7 +100,7 @@
   "ex_search_error": "Search found no results for: ",
   "ex_latest_transactions": "Latest Transactions",
   "ex_summary": "Block Summary",
-  "ex_supply": "Coin Supply",
+  "ex_supply": "Accounted chain value",
   "ex_block": "Block",
 
   // transaction view

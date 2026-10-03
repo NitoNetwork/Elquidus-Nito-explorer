@@ -1,0 +1,45 @@
+extends layout
+
+block content
+  .col-12
+    h3=settings.localization.nito_address_scope
+    p=settings.localization.nito_rich_scope
+    if stats.pools
+      p.small.breakWord=stats.pools.chain + ' · ' + stats.pools.blocks + ' · ' + stats.pools.bestblockhash
+    else
+      .alert.alert-warning=settings.localization.nito_unavailable
+    .row
+      .col-12.col-lg-8
+        each rows, category in {balance: balance, received: received}
+          .card.cardSpacer
+            .card-header=category == 'balance' ? settings.localization.rl_current_balance : settings.localization.rl_received_coins
+            .table-responsive
+              table.table.table-striped
+                thead
+                  tr
+                    th #
+                    th=settings.localization.tx_address
+                    th.text-end=settings.coin.symbol
+                    if category == 'balance'
+                      th.text-end %
+                tbody
+                  each address, index in rows
+                    tr
+                      td=index + 1
+                      td.breakWord: a(href='/address/' + address.a_id)=address.a_id
+                      td.text-end=nitoMoney.coins(address[category])
+                      if category == 'balance'
+                        td.text-end=stats.pools ? nitoMoney.percent(address.balance, stats.pools.transparent.chainValueNitoshi) || '—' : '—'
+      .col-12.col-lg-4
+        .card.cardSpacer
+          .card-header=settings.localization.nito_transparent
+          .card-body
+            p.small=settings.localization.nito_chart_scope
+            each group, index in [dista, distb, distc, distd, diste]
+              p.mb-1=index < 4 ? (index * 25 + 1) + '–' + ((index + 1) * 25) : settings.localization.nito_other
+              if group.percent != null
+                .progress.mb-1
+                  .progress-bar(role='progressbar', style='width:' + group.percent + '%', aria-valuenow=group.percent, aria-valuemin='0', aria-valuemax='100')=group.percent + '%'
+                p.breakWord=group.total + ' ' + settings.coin.symbol
+              else
+                p=settings.localization.nito_unavailable

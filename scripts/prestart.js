@@ -1,7 +1,7 @@
 const settings = require('../lib/settings');
-const minNodeVersionMajor = '16';
-const minNodeVersionMinor = '20';
-const minNodeVersionRevision = '1';
+const minNodeVersionMajor = '22';
+const minNodeVersionMinor = '0';
+const minNodeVersionRevision = '0';
 
 // get the nodejs version
 var nodeVersion = process.version;

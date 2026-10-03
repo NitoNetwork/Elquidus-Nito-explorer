@@ -1,6 +1,7 @@
 extends layout
 
 block content
+  p.alert.alert-info=settings.localization.nito_output_value
   script.
     var setting_maxTxCount = parseInt("#{settings.api_page.public_apis.ext.getlasttxs.max_items_per_query}");
     var setting_txPerPage = parseInt("#{settings.movement_page.movement_table.items_per_page}");

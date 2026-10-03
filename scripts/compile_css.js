@@ -9,7 +9,7 @@ const theme_selector_template_text = `$theme-name: "replace";`;
 const settings = require('../lib/settings');
 let compile_theme_css = false;
 let compile_custom_css = false;
-let theme_name = '';
+let theme_name = settings.shared_pages.theme;
 
 // check if the theme selector file exists
 if (!fs.existsSync(`${css_path}${theme_selector_filename}`)) {

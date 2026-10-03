@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+throw new Error('Retired unsafe rebuild: use a new isolated database and scripts/sync_nito.js; see docs/nito-v4-orchard.md');
 
 const fs = require('fs');
 const http = require('http');

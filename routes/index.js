@@ -24,7 +24,7 @@ function send_block_data(res, block, txs, title_text, orphan) {
 
 function send_tx_data(res, tx, blockcount, orphan) {
   res.render(
-    'tx',
+    'nito-tx',
     {
       active: 'tx',
       tx: tx,
@@ -93,32 +93,7 @@ function get_last_updated_date(show_last_updated, last_updated_field, cb) {
 }
 
 function get_block_data_from_wallet(block, res, orphan) {
-  var ntxs = [];
-
-  lib.syncLoop(block.tx.length, function (loop) {
-    var i = loop.iteration();
-
-    lib.get_rawtransaction(block.tx[i], function(tx) {
-      if (tx && tx != `${settings.localization.ex_error}: ${settings.localization.check_console}`) {
-        lib.prepare_vin(tx, function(vin, tx_type_vin) {
-          lib.prepare_vout(tx.vout, block.tx[i], vin, ((!settings.blockchain_specific.zksnarks.enabled || typeof tx.vjoinsplit === 'undefined' || tx.vjoinsplit == null) ? [] : tx.vjoinsplit), function(vout, nvin, tx_type_vout) {
-            lib.calculate_total(vout, function(total) {
-              ntxs.push({
-                txid: block.tx[i],
-                vout: vout,
-                total: total.toFixed(8)
-              });
-
-              loop.next();
-            });
-          }, tx);
-        });
-      } else
-        loop.next();
-    });
-  }, function() {
-    send_block_data(res, block, ntxs, 'Block ' + block.height, orphan);
-  });
+  db.get_txs(block, txs => send_block_data(res, block, txs, 'Block ' + block.height, orphan));
 }
 
 function get_custom_hash() {
@@ -169,111 +144,12 @@ function route_get_block(res, blockhash) {
   });
 }
 
-function route_get_tx(res, txid) {
-  if (txid == settings.transaction_page.genesis_tx)
-    route_get_block(res, settings.block_page.genesis_block);
-  else {
-    db.get_tx(txid, function(tx) {
-      if (tx) {
-        lib.get_blockcount(function(blockcount) {
-          if (settings.claim_address_page.enabled == true) {
-            db.populate_claim_address_names(tx, function(tx) {
-              send_tx_data(res, tx, (blockcount ? blockcount : 0), null);
-            });
-          } else
-            send_tx_data(res, tx, (blockcount ? blockcount : 0), null);
-        });
-      } else {
-        lib.get_rawtransaction(txid, function(rtx) {
-          if (rtx && rtx.txid) {
-            lib.prepare_vin(rtx, function(vin, tx_type_vin) {
-              lib.prepare_vout(rtx.vout, rtx.txid, vin, ((!settings.blockchain_specific.zksnarks.enabled || typeof rtx.vjoinsplit === 'undefined' || rtx.vjoinsplit == null) ? [] : rtx.vjoinsplit), function(rvout, rvin, tx_type_vout) {
-                lib.calculate_total(rvout, function(total) {
-                  if (!rtx.confirmations > 0) {
-                    lib.get_block(rtx.blockhash, function(block) {
-                      if (block && block != `${settings.localization.ex_error}: ${settings.localization.check_console}`) {
-                        var utx = {
-                          txid: rtx.txid,
-                          vin: rvin,
-                          vout: rvout,
-                          total: total.toFixed(8),
-                          timestamp: (rtx.time == null ? block.time : rtx.time),
-                          blockhash: (rtx.blockhash == null ? '-' : rtx.blockhash),
-                          blockindex: block.height
-                        };
-
-                        if (settings.claim_address_page.enabled == true) {
-                          db.populate_claim_address_names(utx, function(utx) {
-                            send_tx_data(res, utx, (block.height - 1), true);
-                          });
-                        } else
-                          send_tx_data(res, utx, (block.height - 1), true);
-                      } else {
-                        // cannot load tx
-                        route_get_txlist(res, null);
-                      }
-                    });
-                  } else {
-                    // check if blockheight exists
-                    if (!rtx.blockheight && rtx.blockhash) {
-                      // blockheight not found so look up the block
-                      lib.get_block(rtx.blockhash, function(block) {
-                        if (block && block != `${settings.localization.ex_error}: ${settings.localization.check_console}`) {
-                          // create the tx object before rendering
-                          var utx = {
-                            txid: rtx.txid,
-                            vin: rvin,
-                            vout: rvout,
-                            total: total.toFixed(8),
-                            timestamp: rtx.time,
-                            blockhash: rtx.blockhash,
-                            blockindex: block.height
-                          };
-
-                          lib.get_blockcount(function(blockcount) {
-                            if (settings.claim_address_page.enabled == true) {
-                              db.populate_claim_address_names(utx, function(utx) {
-                                send_tx_data(res, utx, (blockcount ? blockcount : 0), null);
-                              });
-                            } else
-                              send_tx_data(res, utx, (blockcount ? blockcount : 0), null);
-                          });
-                        } else {
-                          // cannot load tx
-                          route_get_txlist(res, null);
-                        }
-                      });
-                    } else {
-                      // create the tx object before rendering
-                      var utx = {
-                        txid: rtx.txid,
-                        vin: rvin,
-                        vout: rvout,
-                        total: total.toFixed(8),
-                        timestamp: rtx.time,
-                        blockhash: rtx.blockhash,
-                        blockindex: rtx.blockheight
-                      };
-
-                      lib.get_blockcount(function(blockcount) {
-                        if (settings.claim_address_page.enabled == true) {
-                          db.populate_claim_address_names(utx, function(utx) {
-                            send_tx_data(res, utx, (blockcount ? blockcount : 0), null);
-                          });
-                        } else
-                          send_tx_data(res, utx, (blockcount ? blockcount : 0), null);
-                      });
-                    }
-                  }
-                });
-              }, rtx);
-            });
-          } else
-            route_get_txlist(res, null);
-        });
-      }
-    });
-  }
+function route_get_tx(res, txid, blockhash) {
+  if (txid === settings.transaction_page.genesis_tx) return route_get_block(res, settings.block_page.genesis_block);
+  db.get_tx(txid, function(tx) {
+    if (!tx) return route_get_txlist(res, settings.localization.nito_unavailable);
+    send_tx_data(res, tx, null, tx.confirmations != null && tx.confirmations < 0);
+  }, blockhash);
 }
 
 function route_get_txlist(res, error) {
@@ -296,6 +172,7 @@ function route_get_txlist(res, error) {
 }
 
 function route_get_address(res, hash) {
+  if (require('../lib/nito-transaction').privateAddress(hash)) return route_get_txlist(res, settings.localization.nito_private_address);
   // check if trying to load a special address
   if (hash != null && hash.toLowerCase() != 'coinbase' && ((hash.toLowerCase() == 'hidden_address' && settings.address_page.enable_hidden_address_view == true) || (hash.toLowerCase() == 'unknown_address' && settings.address_page.enable_unknown_address_view == true) || (hash.toLowerCase() != 'hidden_address' && hash.toLowerCase() != 'unknown_address'))) {
     // lookup address in local collection
@@ -463,19 +340,19 @@ router.get('/richlist', function(req, res) {
         if (richlist) {
           db.get_distribution(richlist, stats, function(distribution) {
             res.render(
-              'richlist',
+              'nito-richlist',
               {
                 active: 'richlist',
                 balance: richlist.balance,
                 received: richlist.received,
                 burned: richlist.burned,
-                stats: stats,
+                stats: stats || {},
                 dista: distribution.t_1_25,
                 distb: distribution.t_26_50,
                 distc: distribution.t_51_75,
                 distd: distribution.t_76_100,
                 diste: distribution.t_101plus,
-                last_updated: (settings.richlist_page.page_header.show_last_updated == true ? stats.richlist_last_updated : null),
+                last_updated: (settings.richlist_page.page_header.show_last_updated == true ? (stats && stats.richlist_last_updated) : null),
                 showSync: db.check_show_sync_message(),
                 customHash: get_custom_hash(),
                 styleHash: get_style_hash(),
@@ -592,7 +469,7 @@ router.get('/reward', function(req, res) {
           'reward',
           {
             active: 'reward',
-            stats: stats,
+            stats: stats || {},
             heavy: heavy,
             votes: votes,
             last_updated: (settings.blockchain_specific.heavycoin.reward_page.page_header.show_last_updated == true ? stats.reward_last_updated : null),
@@ -612,7 +489,7 @@ router.get('/reward', function(req, res) {
 });
 
 router.get('/tx/:txid', function(req, res) {
-  route_get_tx(res, req.params.txid);
+  route_get_tx(res, req.params.txid, /^[0-9a-f]{64}$/i.test(req.query.blockhash || '') ? req.query.blockhash : undefined);
 });
 
 router.get('/block/:hash', function(req, res) {

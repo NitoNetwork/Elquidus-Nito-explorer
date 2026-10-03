@@ -1,3 +1,4 @@
+if (!['market', 'peers', 'masternodes'].includes(process.argv[2])) { console.error('Use npm run sync-blocks; legacy index writers are disabled for Nito V4.'); process.exit(1); }
 var mongoose = require('mongoose'),
     lib = require('../lib/explorer'),
     blkSync = require('../lib/block_sync'),

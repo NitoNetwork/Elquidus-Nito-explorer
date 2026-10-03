@@ -17,32 +17,25 @@ This repository contains the explorer application and public deployment examples
 - Rich list and holder pages
 - Address label claim system
 - Public API endpoints for explorer data
-- Nito v4 private Orchard transaction markers without indexing Bech32x recipients
+- Nito Core V4 public Orchard metadata and exact pool accounting
 
-## Nito v4 Orchard Display
+## Nito Core V4 compatibility
 
-The explorer remains compatible with the transparent v3 chain. When connected to
-a v4 node and a block contains private Orchard data, the explorer displays a
-privacy-safe `Bech32x...` marker for private Orchard transaction sides. It does
-not index `nito1x` recipients, does not create searchable private address
-balances, and keeps private-only transactions visible by txid/block without
-inventing public amounts.
+The explorer shows transparent inputs and outputs alongside the public Orchard
+bundle: action count, signed net value balance and known fees. It never creates
+private recipients, UTXOs or address balances. Bech32x addresses are excluded from
+address search, histories and rankings on every supported network.
 
-For best results, run against a Nito Core build that exposes
-`has_private_bundle` and `private_bundle` in verbose transaction RPC output.
-The explorer also has a defensive fallback that detects the v4 private flag from
-raw transaction hex.
+Transparent UTXO value, Orchard pool value and their exact combined chain value
+come from one `getorchardpools` snapshot. The combined value includes immature
+rewards and is distinct from issuance, maximum supply and estimated circulation.
 
-Compared with a v3-only eIquidus deployment, the v4 requirements are:
+**Existing indexes require an isolated rebuild.** The new indexer commits each
+block and its transparent address changes atomically. It refuses legacy data and
+standalone MongoDB servers. Do not run an old reindex or address-rebuild script.
 
-- run against a Nito Core node with `txindex=1`;
-- keep address pages and rich lists transparent-only;
-- show private Orchard sides as markers, not searchable public addresses;
-- rebuild the transparent address index if an older test index created invalid
-  private pseudo-balances.
-
-See [docs/nito-v4-orchard.md](docs/nito-v4-orchard.md) for the indexing,
-display and maintenance rules used by the Nito v4 explorer fork.
+Read [the V4 accounting, API, validation and migration guide](docs/nito-v4-orchard.md)
+before upgrading. No production database change is part of the validation workflow.
 
 ## Installation
 
@@ -51,11 +44,11 @@ This guide is for running an independent NITO explorer instance.
 ## Requirements
 
 - Linux server, preferably Ubuntu 22.04 or newer
-- Node.js 20.x and npm
-- MongoDB
+- Node.js 22 or later and npm (Node.js 24 tested)
+- MongoDB replica set with transaction support (MongoDB 7 tested)
 - PM2
 - Nginx
-- A fully synced NITO daemon with RPC enabled and txindex enabled
+- An archival Nito Core V4 daemon with RPC, synchronized txindex and coinstatsindex
 
 ## NITO Daemon Example
 
@@ -65,6 +58,8 @@ Add equivalent options to your NITO daemon config. Replace every CHANGE_ME value
 server=1
 daemon=1
 txindex=1
+coinstatsindex=1
+prune=0
 rpcbind=127.0.0.1
 rpcallowip=127.0.0.1
 rpcuser=CHANGE_ME_RPC_USER
@@ -74,7 +69,7 @@ rpcport=8825
 
 ## MongoDB Example
 
-Create a dedicated database and user. Replace CHANGE_ME values before use.
+Configure a MongoDB replica set first. Create a new, empty dedicated database and user. Replace CHANGE_ME values before use.
 
 ~~~javascript
 use nito_explorerdb
@@ -94,7 +89,7 @@ Leave it blank for the standard single-database deployment.
 ~~~bash
 git clone https://github.com/biigbang0001/explorer-eIquidus-NITO.git
 cd explorer-eIquidus-NITO
-npm install
+npm ci
 cp settings.json.template settings.json
 nano settings.json
 ~~~
@@ -110,7 +105,7 @@ pm2 save
 Run a first sync manually, then keep block sync running through your supervisor.
 
 ~~~bash
-node scripts/sync.js index update
+npm run sync-blocks
 node scripts/sync.js market update
 npm run sync-blocks-loop
 ~~~
@@ -139,13 +134,13 @@ limit_req_status 429;
 
 ~~~bash
 pm2 status explorer
-curl -k https://explorer.nito.network/ext/getsummary
-curl -k https://explorer.nito.network/ext/getlasttxs/0/0/10/internal
+curl http://127.0.0.1:3001/ext/getorchardpools
+curl http://127.0.0.1:3001/ext/getlasttxs/0/0/10/internal
 ~~~
 
 For a v4 deployment, also verify one transparent-only transaction and one
 transaction containing a private Orchard bundle. The private page should show
-privacy-safe markers and must not create searchable `nito1x...` balance pages.
+the public bundle and known fee, and must not create searchable Bech32x balance pages.
 
 ## Security Notes
 

@@ -1,71 +1,232 @@
-# Nito v4 Orchard Explorer Support
+# Nito Core V4 explorer accounting
 
-This repository owns the eIquidus-style explorer behavior for Nito v4. Nito
-Core documents the chain and wallet rules; this document describes how this
-explorer displays those rules without leaking or inventing private state.
+## Supported contract
 
-## Scope
+Use an archival Nito Core V4 node with `txindex=1`, `coinstatsindex=1`,
+`prune=0` and RPC bound to a trusted interface. Both indexes must finish syncing.
+The explorer needs public block and transaction RPCs; it does not need wallet
+keys, viewing keys, wallet RPCs or an address-to-Orchard-note index.
+`orchardindex` is needed by the wallets that generate integration-test payments,
+not by this explorer's public accounting. `transparenthistoryindex` is not an
+explorer dependency. A pruned node can answer `getorchardpools`, but cannot
+necessarily provide old blocks and prevouts for a full rebuild or orphan lookup.
 
-The explorer indexes transparent scripts and public block/transaction metadata.
-It does not index Bech32x Orchard receivers and it does not assign searchable
-balances to `nito1x...` addresses.
+Node.js 22 or later is required for the JSON reviver's original numeric lexeme.
+MongoDB must support multi-document transactions (a replica set, or a compatible
+sharded deployment). The tested database configuration is MongoDB 7 on a local
+single-member replica set; that test topology is not a high-availability design.
 
-Private transactions are displayed with privacy-safe markers:
+## Public transaction data
 
-- `Bech32x...` for private value leaving Orchard;
-- `Bech32x...` for private value entering Orchard;
-- `Hidden` for pure Orchard-to-Orchard value that is not public.
+`has_private_bundle` and `private_bundle` are the Orchard authority. The explorer
+stores only the public action count and signed value balance. It does not add
+private entries to `vin` or `vout`. Nullifiers and commitments, when exposed by
+raw Core data, have no wallet or private-address attribution here.
 
-Transparent-only transactions keep the classic eIquidus display path.
+For a non-coinbase transaction:
 
-## Amount Rules
-
-When Nito Core exposes `private_bundle.value_balance`, the explorer can display
-the public cross-pool amount for transparent-to-private and private-to-transparent
-transactions. That value is a public chain fact because transparent value enters
-or leaves the private pool.
-
-Pure private-to-private value remains hidden. The explorer must not guess an
-amount from missing public outputs, and it must not create a fake transparent
-recipient.
-
-## Indexing Rules
-
-The address and rich-list indexes are transparent-only. The special internal
-marker `private_orchard` is excluded from public rich lists and address pages.
-
-If historical address or rich-list state was built with older logic, rebuild the
-transparent address index from the node UTXO view before trusting top-holder
-pages. The helper script for that operation is:
-
-```bash
-npm run rebuild-transparent-address-index -- --datadir=/path/to/nito/data --settings=/path/to/settings.json
+```text
+fee_nitoshi = transparent_input_nitoshi
+            + value_balance_nitoshi
+            - transparent_output_nitoshi
+orchard_pool_delta_nitoshi = -value_balance_nitoshi
 ```
 
-Run it only against an isolated or maintenance database, then verify sampled
-balances against `scantxoutset` from Nito Core.
+A positive value balance leaves Orchard; a negative value enters Orchard.
+It is a **net** value, not a recipient amount or private transfer volume. A fully
+private transfer can have a positive public value balance equal to its fee.
+Coinbase has no transaction fee. All transparent outputs, including scripts with
+no address, contribute to fee arithmetic. Previous-output failure leaves inputs
+and derived fees unavailable. A separately reported Core fee can remain known;
+if both derivations are available they must agree.
 
-## Continuous Sync
+The old hex-prefix heuristic has been removed. Without structured Orchard
+metadata, the explorer accepts transparent classification only after parsing the
+entire transparent serialization, canonical CompactSize values, witness stacks
+and locktime. Unknown extensions, truncated data and private envelopes without
+their metadata remain `unknown`, never assumed fully transparent. This parser
+is a display completeness check, not a replacement for Core consensus validation.
 
-The one-shot `npm run sync-blocks` command exits after one pass. For a test
-deployment that must keep following the chain, run the wrapper:
+The block and latest-transaction lists label their amount as **transparent output
+value**, including transparent change. A zero on a fully Orchard row means zero
+transparent output value, not a zero private payment. Recipient counts on these
+lists count transparent outputs only. Transaction pages expose txid, block,
+confirmations, size, known fee, actions and net pool balance separately.
+An orphan has confirmations `-1`; an unconfirmed transaction has `0`; a failed
+confirmation lookup has `null`. Block pages link with `?blockhash=...` so the
+orphan's exact transaction context can be retained.
 
-```bash
-npm run sync-blocks-loop
+## Pool accounting and precision
+
+The three totals are collected from **one** `getorchardpools` response and checked
+against the chain identity, height and best hash before and after collection:
+
+```text
+transparent.chainValueNitoshi + orchard.chainValueNitoshi
+    = total.chainValueNitoshi
 ```
 
-The wrapper repeats block syncs and sleeps after failures. It is intended for
-PM2-managed test deployments and does not replace a production supervisor
-policy.
+Every integer and corresponding coin-decimal field must agree. Monetary JSON
+literals are preserved before JavaScript number conversion. Calculations use
+`BigInt`; database amount fields use exact BSON Decimal128; API amounts use
+decimal strings. No float is used for value-pool identities, fees, address
+balances or distribution percentages. Charts round their proportions to two
+decimal places. Market-price valuations are approximate and explicitly use
+accounted chain value, not an estimate of circulating supply.
 
-## Required Node RPC Behavior
+The total includes immature coinbase rewards. Lost private keys cannot be
+deducted. Genesis outputs excluded from the UTXO set, provably unspendable outputs
+and unclaimed rewards mean this total can differ from theoretical cumulative
+issuance. It is neither maximum supply nor an estimate of circulating coins.
+Shielding moves value between pools and does not destroy coins.
 
-Use a Nito Core node that supports:
+Only the indexer collects pool totals. It checks that `coinstatsindex` is synced
+at the target height, coalesces concurrent collection and caches by network and
+block hash. Web requests read the persisted snapshot and use a cheap chain-tip
+check; they never call `getorchardpools` or scan UTXOs. The visitor-facing
+`/api/gettxoutsetinfo` endpoint is disabled. A missing, mismatched or stale snapshot
+is unavailable, not zero. Reorganizations invalidate snapshots by hash even if
+height is unchanged.
 
-- verbose transaction fields `has_private_bundle` and `private_bundle`;
-- `private_bundle.value_balance` for cross-pool public amounts;
-- `getrawtransaction <txid> true <blockhash>` or txindex-enabled raw transaction
-  lookup for confirmed transactions.
+`nito_pools` retains snapshots collected while the indexer was running. It is
+**not** a complete retrospective supply series: heights missed during catch-up
+have no snapshot. Old supply fields and cumulative address receipts must never
+be relabeled as historical Orchard totals. Existing network charts show hashrate
+and difficulty only; they do not reconstruct monetary history.
 
-The explorer also detects the Nito private transaction flag from raw hex as a
-defensive display fallback, but RPC metadata is the preferred path.
+## Transparent addresses and distribution
+
+Bech32x prefixes for mainnet, testnet/Signet and regtest are blocked from address,
+balance, history and claim views. This is an exclusion guard, not address checksum
+validation. `private_orchard` is also blocked and never created by the indexer.
+Old pseudo-address rows cannot become public balances through the new API.
+
+Address indexes include only identifiable transparent scripts. Scripts without
+a single public address remain visible on transaction pages without inventing
+an owner. Historical P2PK scripts retain the inherited grouping under the
+corresponding public-key P2PKH address, derived by Core and marked
+`address_kind: p2pk_public_key_alias`. This is a transparent script alias, not
+an Orchard receiver or proof of common ownership. Rich lists rank addresses,
+not people or wallets. Their percentages
+use the **transparent UTXO pool** at the same indexed block, never total chain
+value or cumulative receipts. The remainder includes other transparent scripts
+and configured excluded addresses. Cumulative received rankings have no supply
+percentage and may exceed current supply because coins can move repeatedly.
+
+## Database and restart behavior
+
+`npm run sync-blocks` uses `scripts/sync_nito.js`. For each block, a MongoDB
+transaction commits transactions, exact transparent address deltas, unique
+address/transaction records, the block checkpoint and transaction count together.
+A failed write aborts the whole block. A retry does not apply the block twice.
+The indexer reconciles its stored hash against Core, disconnects orphaned blocks
+atomically, reverses both sent and received counters, then connects the new chain.
+Run one scheduled writer per database; concurrent writers are protected by the
+checkpoint write conflict, but unnecessarily increase retries.
+
+Collections and required indexes are created by the new indexer:
+
+| Collection | Identity / query indexes |
+| --- | --- |
+| `nito_state` | coin identity, schema version, network, genesis, height and hash |
+| `nito_blocks` | unique hash and unique height |
+| `txes` | unique txid; descending block height, transaction position and txid |
+| `addresses` | unique address; balance and cumulative received order |
+| `addresstxes` | unique address + txid; address + height + transaction position + txid |
+| `nito_pools` | unique block hash |
+
+Legacy transactions can still be looked up through Core. If RPC is unavailable,
+their private markers are removed and their incomplete monetary summary remains
+unavailable. Old address totals are not trusted by the new views. The indexer
+refuses to append to a legacy database; casting an old rounded number to Decimal128
+cannot recover the missing nitoshis.
+
+## API contract
+
+Existing transparent endpoints remain available. Monetary fields now use strings;
+clients must use decimal or integer arithmetic instead of coercing them to a
+JavaScript `Number`.
+
+| Endpoint | Amount meaning |
+| --- | --- |
+| `/ext/getorchardpools` | All three exact pools, network, height, hash and scope; HTTP 503 if unavailable |
+| `/ext/getmoneysupply` | Plain-text combined chain value; `X-Amount-Scope` header; HTTP 503 if unavailable |
+| `/ext/getbasicstats`, `/ext/getsummary` | `money_supply` / `supply` has the same chain-value meaning, or null; includes scope and pools |
+| `/ext/gettx/:txid` | `total` is transparent outputs in nitoshis; `total_scope`, `privacy`, `metadata_complete`, `fee_nitoshi`, `orchard` are explicit |
+| `/ext/getlasttxs/...` | Coin-denominated transparent output value; public JSON includes scope, privacy, fee and Orchard metadata |
+| `/ext/getaddress/:address`, `/ext/getbalance/:address` | Exact transparent address amounts; private receivers return HTTP 422 |
+| `/ext/getaddresstxs/:address/:start/:length` | Exact net transparent movement and historical balance, not private movement |
+| `/ext/getdistribution` | Transparent denominator, hash and exact rounded percentages |
+
+The raw RPC proxy also preserves monetary lexemes as strings. The inherited API
+enable/disable settings still apply. English is the supplied locale; new labels
+are centralized in `lib/locale.js` and `locale/en.json`, so custom locales can
+translate them without changing templates.
+
+## Isolated migration and rollback
+
+Do not run a rebuild on a production database. The former address-only UTXO
+rebuild and legacy index writers are disabled because they cannot establish
+complete sent/received history or correct old private pseudo-balances.
+
+1. Keep the deployed explorer revision, configuration and consistent database
+   backup together. Restore an existing authorized backup into a separate,
+   isolated MongoDB instance. Do not point a test process at production.
+2. Run the read-only structural inventory on that copy:
+
+   ```bash
+   export NITO_AUDIT_MONGO_URI='mongodb://127.0.0.1:27018'
+   export NITO_AUDIT_DATABASE='explorer_validation_copy'
+   npm run audit-index
+   ```
+
+   It reports legacy documents, private pseudo-addresses, duplicate history keys
+   and balance storage types. It never deletes, repairs or rounds data. Structural
+   checks alone do not certify balances against Core.
+3. Create a **different empty database**, for example `explorer_v4_validation`,
+   on a replica set. Use a separate explorer checkout and local `settings.json`
+   with that database, a local web port, and the intended archival Core network.
+4. Run `npm run sync-blocks` until the checkpoint reaches Core. The indexer
+   rebuilds full transparent history from blocks; it does not import old money
+   totals. Address claims or labels may be reviewed and copied separately only
+   after excluding private receivers; never copy legacy balance collections.
+5. Compare sampled address balances against Core `scantxoutset` **as a one-off
+   operator validation**, not a web request. Check all three totals against a
+   same-tip `getorchardpools`, verify the network/genesis identity, test an orphan,
+   restart the writer, and run it twice to check stable counts and balances.
+6. Compare representative pre-activation historical transactions and scripts,
+   transparent/private/mixed transactions and API clients. Keep unavailable
+   historical pool heights as gaps. Retain the original backup for rollback.
+7. Production cutover requires a separate operator decision. If authorized later,
+   stop the old writer, complete the new database's catch-up, then switch the app
+   and writer together. Never run an old writer against schema version 2.
+
+Rollback means stopping the new writer and returning the app, configuration and
+old database together to the retained revision. Do not downgrade the new schema
+in place. The old explorer has the accounting limitations described above; keep
+private/rich-list features disabled there until their correctness is established.
+
+## Validation
+
+```bash
+npm ci
+npm run test:core
+npm run test:v4
+NITO_DAEMON=/path/to/tested/nitod npm run test:integration
+```
+
+The integration test creates its own isolated regtest datadir and ephemeral local
+MongoDB replica set, then stops both. It requires the `mongodb-memory-server`
+development dependency, which downloads an official MongoDB test binary on first
+use. It never reads production settings for its RPC or database connections.
+The test exercises pre/post activation, real transparent/shield/unshield/private/
+mixed transactions, mempool and confirmed metadata, Core fee agreement, exact
+pool identity, repeated sync, restart, orphan reversal, same-height replacement,
+aborted database writes, legacy-index refusal, HTTP routes and RPC outage.
+
+Unit tests cover missing metadata, previous-output failure, serialization errors,
+signed balances, exact maximum-range arithmetic and pool cache/index failures.
+Run the inherited `npm test` separately: its live Poloniex integration depends on
+an external service and is not a deterministic Orchard qualification gate.
+Desktop/mobile browser checks remain part of acceptance. Local regtest evidence
+does not certify production history, mainnet operation or another platform.

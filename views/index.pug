@@ -65,9 +65,9 @@ block content
           var blockhash = data[1];
           var txhash = data[2];
           var outputs = data[3];
-          var amount = Number(data[4]).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
+          var amount = data[4] == null ? '#{settings.localization.nito_unavailable}' : String(data[4]);
           var amountParts = amount.split('.');
-          var amount = amountParts[0] + '.<span class="decimal">' + amountParts[1] + '</span>';
+          var amount = amountParts.length < 2 ? amount : amountParts[0] + '.<span class="decimal">' + amountParts[1] + '</span>';
           var timestamp = data[5];
           var offset = 0;
 
@@ -75,6 +75,9 @@ block content
           $("td:eq(1)", row).html('<a href="/block/' + blockhash + '">' + blockindex + '</a>');
           $("td:eq(2)", row).html('<a href="/tx/' + txhash + '">' + txhash + '</a>').addClass("text-center breakWord d-none d-md-table-cell");
           $("td:eq(3)", row).html(outputs).addClass("text-center d-none d-sm-table-cell");
+          var privacy = data.find(function(v) { return typeof v === 'string' && v.indexOf('privacy:') === 0; });
+          if (privacy === 'privacy:orchard') amount += '<br><span class="badge bg-secondary">Orchard</span>';
+          if (privacy === 'privacy:unknown') amount += '<br>#{settings.localization.nito_incomplete}';
           $("td:eq(4)", row).html(amount);
 
           if (#{settings.block_page.multi_algorithm.show_algo} == true) {
@@ -175,8 +178,8 @@ block content
             th.d-table-cell.d-md-none
             th.text-center #{settings.localization.ex_block}
             th.text-center.d-none.d-md-table-cell #{settings.localization.tx_hash}
-            th.text-center.d-none.d-sm-table-cell #{settings.localization.tx_recipients}
-            th.text-center #{settings.localization.mkt_amount}
+            th.text-center.d-none.d-sm-table-cell #{settings.localization.nito_outputs}
+            th.text-center #{settings.localization.nito_output_value}
               span.small.fw-normal  (#{settings.coin.symbol})
             if settings.block_page.multi_algorithm.show_algo == true
               th.text-center="Algorithm"

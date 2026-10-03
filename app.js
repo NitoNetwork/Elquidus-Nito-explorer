@@ -172,6 +172,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Exact amounts are formatted on the server, without binary floating point.
+app.locals.nitoMoney = require('./lib/nito-amount');
+app.use(require('./lib/nito-api'));
+
 // routes
 app.use('/api', nodeapi.app);
 app.use('/', routes);
@@ -423,144 +427,9 @@ app.post('/plugin-request', function(req, res) {
 });
 
 // extended apis
-app.use('/ext/getmoneysupply', function(req, res) {
-  // check if the getmoneysupply api is enabled
-  if (settings.api_page.enabled == true && settings.api_page.public_apis.ext.getmoneysupply.enabled == true) {
-    // lookup stats
-    db.get_stats(settings.coin.name, function (stats) {
-      res.setHeader('content-type', 'text/plain');
-      res.end((stats && stats.supply ? stats.supply.toString() : '0'));
-    });
-  } else
-    res.end(settings.localization.method_disabled);
-});
 
-app.use('/ext/getaddress/:hash', function(req, res) {
-  // check if the getaddress api is enabled
-  if (settings.api_page.enabled == true && settings.api_page.public_apis.ext.getaddress.enabled == true) {
-    db.get_address(req.params.hash, false, function(address) {
-      db.get_address_txs_ajax(req.params.hash, 0, settings.api_page.public_apis.ext.getaddresstxs.max_items_per_query, function(txs, count) {
-        if (address) {
-          var last_txs = [];
 
-          for (i = 0; i < txs.length; i++) {
-            if (typeof txs[i].txid !== "undefined") {
-              var out = 0,
-                  vin = 0,
-                  tx_type = 'vout',
-                  row = {};
 
-              if (typeof txs[i].address_amount === 'number') {
-                if (txs[i].address_amount >= 0)
-                  out = txs[i].address_amount;
-                else
-                  vin = Math.abs(txs[i].address_amount);
-              } else {
-                txs[i].vout.forEach(function (r) {
-                  if (r.addresses == req.params.hash)
-                    out += r.amount;
-                });
-
-                txs[i].vin.forEach(function (s) {
-                  if (s.addresses == req.params.hash)
-                    vin += s.amount;
-                });
-              }
-
-              if (vin > out)
-                tx_type = 'vin';
-
-              row['addresses'] = txs[i].txid;
-              row['type'] = tx_type;
-              last_txs.push(row);
-            }
-          }
-
-          var a_ext = {
-            address: address.a_id,
-            sent: (address.sent / 100000000),
-            received: (address.received / 100000000),
-            balance: (address.balance / 100000000).toString().replace(/(^-+)/mg, ''),
-            last_txs: last_txs
-          };
-
-          res.send(a_ext);
-        } else
-          res.send({ error: 'address not found.', hash: req.params.hash});
-      });
-    });
-  } else
-    res.end(settings.localization.method_disabled);
-});
-
-app.use('/ext/gettx/:txid', function(req, res) {
-  // check if the gettx api is enabled
-  if (settings.api_page.enabled == true && settings.api_page.public_apis.ext.gettx.enabled == true) {
-    var txid = req.params.txid;
-
-    db.get_tx(txid, function(tx) {
-      if (tx) {
-        lib.get_blockcount(function(blockcount) {
-          res.send({ active: 'tx', tx: tx, confirmations: (blockcount - tx.blockindex + 1), blockcount: (blockcount ? blockcount : 0)});
-        });
-      } else {
-        lib.get_rawtransaction(txid, function(rtx) {
-          if (rtx && rtx.txid) {
-            lib.prepare_vin(rtx, function(vin, tx_type_vin) {
-              lib.prepare_vout(rtx.vout, rtx.txid, vin, ((typeof rtx.vjoinsplit === 'undefined' || rtx.vjoinsplit == null) ? [] : rtx.vjoinsplit), function(rvout, rvin, tx_type_vout) {
-                lib.calculate_total(rvout, function(total) {
-                  if (!rtx.confirmations > 0) {
-                    var utx = {
-                      txid: rtx.txid,
-                      vin: rvin,
-                      vout: rvout,
-                      total: total.toFixed(8),
-                      timestamp: rtx.time,
-                      blockhash: '-',
-                      blockindex: -1
-                    };
-
-                    res.send({ active: 'tx', tx: utx, confirmations: rtx.confirmations, blockcount:-1});
-                  } else {
-                    var utx = {
-                      txid: rtx.txid,
-                      vin: rvin,
-                      vout: rvout,
-                      total: total.toFixed(8),
-                      timestamp: rtx.time,
-                      blockhash: rtx.blockhash,
-                      blockindex: rtx.blockheight
-                    };
-
-                    lib.get_blockcount(function(blockcount) {
-                      res.send({ active: 'tx', tx: utx, confirmations: rtx.confirmations, blockcount: (blockcount ? blockcount : 0)});
-                    });
-                  }
-                });
-              });
-            });
-          } else
-            res.send({ error: 'tx not found.', hash: txid});
-        });
-      }
-    });
-  } else
-    res.end(settings.localization.method_disabled);
-});
-
-app.use('/ext/getbalance/:hash', function(req, res) {
-  // check if the getbalance api is enabled
-  if (settings.api_page.enabled == true && settings.api_page.public_apis.ext.getbalance.enabled == true) {
-    db.get_address(req.params.hash, false, function(address) {
-      if (address) {
-        res.setHeader('content-type', 'text/plain');
-        res.end((address.balance / 100000000).toString().replace(/(^-+)/mg, ''));
-      } else
-        res.send({ error: 'address not found.', hash: req.params.hash });
-    });
-  } else
-    res.end(settings.localization.method_disabled);
-});
 
 app.use('/ext/getdistribution', function(req, res) {
   // check if the getdistribution api is enabled
@@ -589,29 +458,6 @@ app.use('/ext/getcurrentprice', function(req, res) {
     res.end(settings.localization.method_disabled);
 });
 
-app.use('/ext/getbasicstats', function(req, res) {
-  // check if the getbasicstats api is enabled
-  if (settings.api_page.enabled == true && settings.api_page.public_apis.ext.getbasicstats.enabled == true) {
-    // lookup stats
-    db.get_stats(settings.coin.name, function (stats) {
-      const currency = lib.get_market_currency_code();
-
-      // check if the masternode count api is enabled
-      if (settings.api_page.public_apis.rpc.getmasternodecount.enabled == true && settings.api_cmds['getmasternodecount'] != null && settings.api_cmds['getmasternodecount'] != '') {
-        // masternode count api is available
-        lib.get_masternodecount(function(masternodestotal) {
-          eval('var p_ext = { "block_count": (stats.count ? stats.count : 0), "money_supply": (stats.supply ? stats.supply : 0), "last_price_' + currency.toLowerCase() + '": stats.last_price, "last_price_usd": stats.last_usd_price, "masternode_count": masternodestotal.total }');
-          res.send(p_ext);
-        });
-      } else {
-        // masternode count api is not available
-        eval('var p_ext = { "block_count": (stats.count ? stats.count : 0), "money_supply": (stats.supply ? stats.supply : 0), "last_price_' + currency.toLowerCase() + '": stats.last_price, "last_price_usd": stats.last_usd_price }');
-        res.send(p_ext);
-      }
-    });
-  } else
-    res.end(settings.localization.method_disabled);
-});
 
 app.use('/ext/getlasttxs/:min', function(req, res) {
   // check if the getlasttxs api is enabled or else check the headers to see if it matches an internal ajax request from the explorer itself (TODO: come up with a more secure method of whitelisting ajax calls from the explorer)
@@ -650,7 +496,8 @@ app.use('/ext/getlasttxs/:min', function(req, res) {
     if (typeof min === 'undefined' || isNaN(min) || min < 0)
       min  = 0;
     else
-      min  = (min * 100000000);
+      try { min = require('./lib/nito-amount').nitoshi(String(min)).toString(); }
+      catch (_) { return res.status(400).json({error: 'Invalid amount filter'}); }
 
     db.get_last_txs(start, length, min, internal, function(data, count) {
       // check if this is an internal request
@@ -666,84 +513,6 @@ app.use('/ext/getlasttxs/:min', function(req, res) {
     res.end(settings.localization.method_disabled);
 });
 
-app.use('/ext/getaddresstxs/:address/:start/:length', function(req, res) {
-  // check if the getaddresstxs api is enabled or else check the headers to see if it matches an internal ajax request from the explorer itself (TODO: come up with a more secure method of whitelisting ajax calls from the explorer)
-  if ((settings.api_page.enabled == true && settings.api_page.public_apis.ext.getaddresstxs.enabled == true) || (req.headers['x-requested-with'] != null && req.headers['x-requested-with'].toLowerCase() == 'xmlhttprequest' && req.headers.referer != null && req.headers.accept.indexOf('text/javascript') > -1 && req.headers.accept.indexOf('application/json') > -1)) {
-    var internal = false;
-    // split url suffix by forward slash and remove blank entries
-    var split = req.url.split('/').filter(function(v) { return v; });
-    // check if this is an internal request
-    if (split.length > 0 && split[0] == 'internal')
-      internal = true;
-    // fix parameters
-    if (typeof req.params.length === 'undefined' || isNaN(req.params.length) || req.params.length > settings.api_page.public_apis.ext.getaddresstxs.max_items_per_query)
-      req.params.length = settings.api_page.public_apis.ext.getaddresstxs.max_items_per_query;
-    if (typeof req.params.start === 'undefined' || isNaN(req.params.start) || req.params.start < 0)
-      req.params.start = 0;
-    if (typeof req.params.min === 'undefined' || isNaN(req.params.min) || req.params.min < 0)
-      req.params.min  = 0;
-    else
-      req.params.min  = (req.params.min * 100000000);
-
-    db.get_address_txs_ajax(req.params.address, req.params.start, req.params.length, function(txs, count) {
-      var data = [];
-
-      for (i = 0; i < txs.length; i++) {
-        if (typeof txs[i].txid !== "undefined") {
-          var out = 0;
-          var vin = 0;
-
-          if (typeof txs[i].address_amount === 'number') {
-            if (txs[i].address_amount >= 0)
-              out = txs[i].address_amount;
-            else
-              vin = Math.abs(txs[i].address_amount);
-          } else {
-            txs[i].vout.forEach(function(r) {
-              if (r.addresses == req.params.address)
-                out += r.amount;
-            });
-
-            txs[i].vin.forEach(function(s) {
-              if (s.addresses == req.params.address)
-                vin += s.amount;
-            });
-          }
-
-          if (internal) {
-            var row = [];
-
-            row.push(txs[i].timestamp);
-            row.push(txs[i].txid);
-            row.push(Number(out / 100000000));
-            row.push(Number(vin / 100000000));
-            row.push(Number(txs[i].balance / 100000000));
-
-            data.push(row);
-          } else {
-            data.push({
-              timestamp: txs[i].timestamp,
-              txid: txs[i].txid,
-              sent: Number(out / 100000000),
-              received: Number(vin / 100000000),
-              balance: Number(txs[i].balance / 100000000)
-            });
-          }
-        }
-      }
-
-      // check if this is an internal request
-      if (internal) {
-        // display data formatted for internal datatable
-        res.json({"data": data, "recordsTotal": count, "recordsFiltered": count});
-      } else {
-        // display data in more readable format for public api
-        res.json(data);
-      }
-    });
-  } else
-    res.end(settings.localization.method_disabled);
-});
 
 function get_connection_and_block_counts(get_data, cb) {
   // check if the connection and block counts should be returned
@@ -811,7 +580,8 @@ app.use('/ext/getsummary', function(req, res) {
                 res.send({
                   difficulty: (difficulty ? difficulty : '-'),
                   difficultyHybrid: difficultyHybrid,
-                  supply: (stats == null || stats.supply == null ? 0 : stats.supply),
+                  supply: (stats == null ? null : stats.supply),
+                  pools: stats && stats.pools, supply_scope: 'confirmed_chain_value_including_immature',
                   hashrate: hashrate,
                   lastPrice: (stats == null || stats.last_price == null ? 0 : stats.last_price),
                   lastUSDPrice: (stats == null || stats.last_usd_price == null ? 0 : stats.last_usd_price),

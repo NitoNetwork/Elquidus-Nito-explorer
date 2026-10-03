@@ -1,0 +1,19 @@
+section#nito-pools.card.card-default.cardSpacer(aria-label=settings.localization.nito_total)
+  .card-body
+    .row.g-3
+      each label, key in {transparent: settings.localization.nito_transparent, orchard: settings.localization.nito_orchard, total: settings.localization.nito_total}
+        .col-12.col-md-4
+          strong=label
+          div.breakWord(data-pool=key)=settings.localization.nito_unavailable
+    small#nito-pool-tip.text-muted
+    p.small.mb-0=settings.localization.nito_pool_scope
+script.
+  $(function () {
+    $.getJSON('/ext/getorchardpools').done(function (p) {
+      if (p.status !== 'available') return;
+      ['transparent', 'orchard', 'total'].forEach(function (key) {
+        $('[data-pool="' + key + '"]').text(p[key].chainValue + ' #{settings.coin.symbol}');
+      });
+      $('#nito-pool-tip').text(p.chain + ' · #{settings.localization.height} ' + p.blocks + ' · ' + p.bestblockhash).addClass('breakWord');
+    });
+  });

@@ -2,10 +2,13 @@ var mongoose = require('mongoose'),
     Schema = mongoose.Schema;
 
 var StatsSchema = new Schema({
+  schema_version: Number,
+  pools: Schema.Types.Mixed,
+  supply_scope: String,
   coin: { type: String },
   count: { type: Number, default: 1 },
   last: { type: Number, default: 1 },
-  supply: { type: Number, default: 0 },
+  supply: { type: String, default: null },
   txes: { type: Number, default: 0 },
   connections: { type: Number, default: 0 },
   last_price: { type: Number, default: 0 },

@@ -15,12 +15,12 @@
     "reload-pm2": "pm2 reload explorer",
     "test": "node ./node_modules/jasmine/bin/jasmine.js test/*Spec.js",
     "prestart": "node ./scripts/prestart.js",
-    "sync-blocks": "node ./scripts/sync.js index update",
+    "sync-blocks": "node ./scripts/sync_nito.js",
     "sync-blocks-loop": "bash ./scripts/nito_v4_sync_loop.sh",
     "sync-markets": "node ./scripts/sync.js market",
     "sync-peers": "node ./scripts/sync.js peers",
     "sync-masternodes": "node ./scripts/sync.js masternodes",
-    "check-blocks": "node ./scripts/sync.js index check",
+    "check-blocks": "node ./scripts/sync_nito.js",
     "reindex": "node ./scripts/sync.js index reindex",
     "reindex-rich": "node ./scripts/sync.js index reindex-rich",
     "rebuild-transparent-address-index": "node ./scripts/rebuild_transparent_address_index.js",
@@ -30,7 +30,11 @@
     "restore-backup": "node ./scripts/restore_backup.js",
     "delete-database": "node ./scripts/delete_database.js",
     "update-explorer": "node ./scripts/update_explorer.js",
-    "benchmark": "node ./scripts/benchmark.js"
+    "benchmark": "node ./scripts/benchmark.js",
+    "test:v4": "node --test test/nito-*.test.js",
+    "test:integration": "node --test test/integration/nito-regtest.test.js",
+    "test:core": "node ./node_modules/jasmine/bin/jasmine.js test/explorerSpec.js",
+    "audit-index": "node scripts/audit_nito_index.js"
   },
   "dependencies": {
     "async": "^3.2.4",
@@ -38,7 +42,7 @@
     "body-parser": "^1.20.0",
     "cookie-parser": "^1.4.6",
     "debug": ">=4.3.4",
-    "express": ">=4.18.1",
+    "express": "^4.21.2",
     "intl": "^1.2.5",
     "jsonminify": "^0.4.2",
     "mongodb": "^6.1.0",
@@ -53,6 +57,10 @@
   "devDependencies": {
     "forever": "^4.0.3",
     "jasmine": ">=4.2.0",
-    "pm2": "^5.2.0"
+    "pm2": "^5.2.0",
+    "mongodb-memory-server": "10.4.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

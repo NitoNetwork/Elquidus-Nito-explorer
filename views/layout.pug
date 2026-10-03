@@ -442,15 +442,15 @@ html(lang='en')
             $("#spnMasternodeCountOffline").prop("alt", mnOfflineText).prop("title", mnOfflineText).attr("data-bs-original-title", mnOfflineText);
             showTopPanelData('masternodepanel', 'masternodePanelLoading');
 
-            let supplyString = json.supply;
+            let supplyString = json.supply == null ? '#{settings.localization.nito_unavailable}' : json.supply;
             let diffString = json.difficulty;
             let hashrateString = json.hashrate;
             let splitValue, splitParts;
 
             if (!isNaN(json.difficulty))
               diffString = Number(json.difficulty).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
-            if (!isNaN(json.supply))
-              supplyString = parseInt(parseFloat(json.supply).toFixed(0)).toLocaleString('en');
+            if (json.supply != null && !isNaN(json.supply))
+              supplyString = json.supply;
             if (!isNaN(json.hashrate))
               hashrateString = Number(json.hashrate).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
 
@@ -466,6 +466,11 @@ html(lang='en')
             splitParts = splitValue.split('.');
             $("#usdMarketCap").html(splitParts[0] + '.<span class="decimal">' + splitParts[1] + '</span>');
             showTopPanelData('usdMarketCapPanel', 'usdMarketCapPanelLoading');
+
+            if (json.supply == null) {
+              $('#marketCap, #usdMarketCap').text('#{settings.localization.nito_unavailable}');
+            }
+            $('#marketCap, #usdMarketCap').attr('title', '#{settings.localization.nito_total} · approximate market valuation');
 
             splitParts = diffString.split('.');
             $("#difficulty").html(splitParts[0] + '.<span class="decimal">' + splitParts[1] + '</span>');
@@ -1721,6 +1726,7 @@ html(lang='en')
               .container(style='padding-left:0;padding-right:0;')
                 .row.align-items-start
                   include ./includes/difficulty_chart.pug
+          include ./includes/nito-pools.pug
           block content
     div#footer-container(class=footerClasses, role='navigation')
       .col-4.navbar-nav
