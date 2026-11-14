@@ -3,11 +3,14 @@ extends layout
 block content
   .alert.alert-info
     p=settings.localization.nito_pool_scope
-    p
-      a(href='/ext/getorchardpools') /ext/getorchardpools
-      |  — exact amounts as decimal strings; one network, height and block hash. HTTP 503 means unavailable.
-    p /ext/gettx uses transparent output totals. Orchard actions, net pool balance and known fees are separate fields. Amounts are strings to preserve every nitoshi.
-    p=settings.localization.nito_private_address
+    p=settings.localization.nito_api_amounts
+    if pools && pools.status === 'available' && pools.activated === true
+      #nito-pool-api-documentation
+        p
+          a(href='/ext/getorchardpools') /ext/getorchardpools
+          |  — #{settings.localization.nito_api_pools}
+        p=settings.localization.nito_api_private
+        p=settings.localization.nito_private_address
   script.
     $(document).ready(function() {
       if (#{settings.shared_pages.page_header.page_title_image.enable_animation} == true && #{settings.api_page.page_header.show_img} == true)

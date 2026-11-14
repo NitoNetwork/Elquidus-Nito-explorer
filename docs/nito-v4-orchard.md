@@ -11,7 +11,10 @@ not by this explorer's public accounting. `transparenthistoryindex` is not an
 explorer dependency. A pruned node can answer `getorchardpools`, but cannot
 necessarily provide old blocks and prevouts for a full rebuild or orphan lookup.
 
-Node.js 22 or later is required for the JSON reviver's original numeric lexeme.
+Use Node.js 24 LTS, version 24.22.3 or later within the 24.x series. This
+security baseline also supports the JSON reviver's original numeric lexeme.
+Install the reviewed dependency graph with `npm ci`; do not run `npm update`
+on an installed explorer. The runtime version is checked before startup.
 MongoDB must support multi-document transactions (a replica set, or a compatible
 sharded deployment). The tested database configuration is MongoDB 7 on a local
 single-member replica set; that test topology is not a high-availability design.
@@ -90,6 +93,17 @@ height or infer activation from a positive pool balance. An activated but empty
 Orchard pool is still displayed. A reorg below activation restores the single
 total view. The Top 100 and its distribution remain transparent-only in either
 mode, with the transparent UTXO total as the percentage denominator.
+
+Install and synchronize Core V4 with the required indexes before starting this
+explorer. No explorer restart or configuration change is needed when Core later
+activates Orchard. Keep the documented continuous indexer running: its default
+pause is 45 seconds after each synchronization, and an open page refreshes the
+header every 60 seconds. The three rows appear after indexing has caught up and
+the next successful page poll; delayed or unavailable data remains unavailable.
+New page requests also pick up activation immediately after a matching snapshot
+is stored. The API documentation's Orchard section is omitted before activation.
+This visibility rule does not remove stable raw API field names or falsify a
+previously observed private transaction on an orphaned branch.
 
 Only the indexer collects pool totals. It checks that `coinstatsindex` is synced
 at the target height, coalesces concurrent collection and caches by network and

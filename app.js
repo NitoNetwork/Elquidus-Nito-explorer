@@ -233,10 +233,10 @@ function validate_captcha(captcha_enabled, data, cb) {
     // determine the captcha type
     if (settings.captcha.google_recaptcha3.enabled == true) {
       if (data.google_recaptcha3 != null) {
-        const request = require('postman-request');
+        const request = require('./lib/http-client');
 
         request({uri: 'https://www.google.com/recaptcha/api/siteverify?secret=' + settings.captcha.google_recaptcha3.secret_key + '&response=' + data.google_recaptcha3, json: true}, function (error, response, body) {
-          if (error) {
+          if (error || !response || response.statusCode !== 200) {
             // an error occurred while trying to validate the captcha
             return cb(true);
           } else if (body == null || body == '' || typeof body !== 'object') {
@@ -256,10 +256,10 @@ function validate_captcha(captcha_enabled, data, cb) {
       }
     } else if (settings.captcha.google_recaptcha2.enabled == true) {
       if (data.google_recaptcha2 != null) {
-        const request = require('postman-request');
+        const request = require('./lib/http-client');
 
         request({uri: 'https://www.google.com/recaptcha/api/siteverify?secret=' + settings.captcha.google_recaptcha2.secret_key + '&response=' + data.google_recaptcha2, json: true}, function (error, response, body) {
-          if (error) {
+          if (error || !response || response.statusCode !== 200) {
             // an error occurred while trying to validate the captcha
             return cb(true);
           } else if (body == null || body == '' || typeof body !== 'object') {
@@ -279,10 +279,10 @@ function validate_captcha(captcha_enabled, data, cb) {
       }
     } else if (settings.captcha.hcaptcha.enabled == true) {
       if (data.hcaptcha != null) {
-        const request = require('postman-request');
+        const request = require('./lib/http-client');
 
         request({uri: 'https://hcaptcha.com/siteverify?secret=' + settings.captcha.hcaptcha.secret_key + '&response=' + data.hcaptcha, json: true}, function (error, response, body) {
-          if (error) {
+          if (error || !response || response.statusCode !== 200) {
             // an error occurred while trying to validate the captcha
             return cb(true);
           } else if (body == null || body == '' || typeof body !== 'object') {

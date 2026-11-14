@@ -240,20 +240,23 @@ router.get('/info', function(req, res) {
       }
     });
 
-    // load the api page
-    res.render(
-      'info',
-      {
-        active: 'info',
-        address: req.headers.host,
-        showSync: db.check_show_sync_message(),
-        customHash: get_custom_hash(),
-        styleHash: get_style_hash(),
-        themeHash: get_theme_hash(),
-        page_title_prefix: settings.coin.name + ' Public API',
-        pluginApisExt: pluginApisExt
-      }
-    );
+    // Read the current tip for every request; activation is never a startup latch.
+    db.get_stats(settings.coin.name, function(stats) {
+      res.render(
+        'info',
+        {
+          active: 'info',
+          pools: stats && stats.pools,
+          address: req.headers.host,
+          showSync: db.check_show_sync_message(),
+          customHash: get_custom_hash(),
+          styleHash: get_style_hash(),
+          themeHash: get_theme_hash(),
+          page_title_prefix: settings.coin.name + ' Public API',
+          pluginApisExt: pluginApisExt
+        }
+      );
+    });
   } else {
     // api page is not enabled so default to the tx list page
     route_get_txlist(res, null);

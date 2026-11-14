@@ -192,7 +192,7 @@ describe('Coingecko quote dependency', () => {
     const source = require('node:fs').readFileSync(require.resolve('../lib/apis/coingecko'), 'utf8');
     const sandbox = { module: {exports: {}}, console,
       require(name) {
-        if (name !== 'postman-request') throw new Error('Unexpected dependency');
+        if (name !== '../http-client') throw new Error('Unexpected dependency');
         return (options, cb) => {
           expect(options.timeout).toBe(10000);
           cb(null, {statusCode: status}, body);

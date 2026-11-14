@@ -44,9 +44,9 @@ This guide is for running an independent NITO explorer instance.
 ## Requirements
 
 - Linux server, preferably Ubuntu 22.04 or newer
-- Node.js 22 or later and npm (Node.js 24 tested)
+- Patched Node.js 24 LTS, at least 24.22.3 and below 25, with npm
 - MongoDB replica set with transaction support (MongoDB 7 tested)
-- PM2
+- PM2 installed locally from this repository's lockfile by `npm ci`
 - Nginx
 - An archival Nito Core V4 daemon with RPC, synchronized txindex and coinstatsindex
 
@@ -94,13 +94,39 @@ cp settings.json.template settings.json
 nano settings.json
 ~~~
 
-Start the explorer with PM2.
+Start the explorer with the local, lockfile-pinned PM2. The start command compiles
+styles, checks database initialization and starts or reloads the explorer process.
+No global PM2 installation or package download occurs during startup.
 
 ~~~bash
-node ./scripts/prestart.js
-pm2 start ./bin/instance --name explorer
-pm2 save
+npm run start-pm2
+node scripts/pm2.js save
 ~~~
+
+Use `npm run stop-pm2` and `npm run reload-pm2` for routine process management.
+For automatic recovery after an operating-system reboot, configure the PM2 startup
+service for the same account and local PM2 installation; saving the process list
+alone does not install an operating-system service. The single foreground process
+alternative for an existing systemd or container supervisor is `npm run start-instance`.
+
+Forever is no longer distributed or supported. Its former start, stop and reload
+commands exit with migration instructions without changing a running service.
+If an old installation still uses Forever, stop it using that original installation
+before starting this version under PM2, so two explorers do not share the same port.
+
+### Reproducible software upgrades
+
+Prepare the chosen commit in a separate checkout, retain the existing application,
+settings and database backup for rollback, then run `npm ci`, `npm test` and
+`npm run test:v4`. Run `npm run test:integration` against an isolated Core regtest
+environment as described in the V4 guide. Review the migration requirements before
+switching the running application. Restart or reload the service once to load the
+new application and patched dependencies.
+
+The old `update-explorer` command now exits with instructions. It no longer runs
+`git pull`, changes dependency versions with `npm update`, or reloads a service.
+Subsequent Orchard activation is detected from the node; it does not require another
+software installation or an explorer restart.
 
 Run a first sync manually, then keep block sync running through your supervisor.
 
@@ -158,7 +184,7 @@ limit_req_status 429;
 ## Verify
 
 ~~~bash
-pm2 status explorer
+node scripts/pm2.js status explorer
 curl http://127.0.0.1:3001/ext/getorchardpools
 curl http://127.0.0.1:3001/ext/getlasttxs/0/0/10/internal
 ~~~
@@ -168,6 +194,9 @@ transaction containing a private Orchard bundle. The private page should show
 the public bundle and known fee, and must not create searchable Bech32x balance pages.
 
 ## Security Notes
+
+See [dependency maintenance and validation](docs/dependency-security.md) for the
+runtime baseline, lockfile policy and compatibility decisions.
 
 - Never commit settings.json.
 - Keep daemon RPC bound to 127.0.0.1.

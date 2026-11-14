@@ -277,8 +277,12 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const uiPort = await port();
   httpServer = app.listen(uiPort, '127.0.0.1');
   const base = `http://127.0.0.1:${uiPort}`;
+  const explorerProcessId = process.pid;
+  const visibleText = html => html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]*>/g, ' ');
   const response = await fetch(base + '/ext/getorchardpools');
   assert.equal(response.status, 200); assert.deepEqual(await response.json(), pools);
+  assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"/);
   const priceState = require('../../lib/market-price-state');
   // The real MongoDB -> stats -> HTTP path must retain provider status everywhere.
   await db.collection('coinstats').updateOne({coin: 'Nito'}, {$set: {last_price: 0, last_usd_price: 0}});
@@ -334,6 +338,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await index.sync(collect);
   await stop();
   assert.equal((await fetch(base + '/ext/getorchardpools')).status, 503);
+  assert.doesNotMatch(visibleText(await (await fetch(base + '/info')).text()), /Orchard|Bech32x|getorchardpools/i);
   const offlineTx = await (await fetch(base + '/ext/gettx/' + cases.private.id)).json();
   assert.equal(offlineTx.tx.privacy, 'orchard');
   assert.equal(offlineTx.confirmations, null);
@@ -345,7 +350,6 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal(unknown.privacy, 'unknown'); assert.equal(unknown.fee_nitoshi, null);
   assert.equal(unknown.metadata_complete, false);
   await index.sync(collect);
-  fs.writeFileSync(path.join(temp, 'explorer-results.json'), JSON.stringify({base, cases, pools, checks: ['activation', 'five transaction forms', 'mempool', 'restart', 'reorg', 'same-height reorg', 'interrupted write', 'duplicate sync', 'legacy refusal', 'HTTP API', 'HTML']}, null, 2));
   console.log('UI_READY', JSON.stringify({base, evidence: temp, privateTx: cases.private.id, mixedTx: mixedId, transparent}));
   if (process.env.NITO_UI_HOLD) {
     const stopFile = path.join(temp, 'finish-ui');
@@ -357,7 +361,15 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const preactivation = await (await fetch(base + '/ext/getorchardpools')).json();
   assert.equal(preactivation.activated, false);
   assert.equal(preactivation.orchard.chainValueNitoshi, '0');
-  assert.equal((await fetch(base + '/richlist')).status, 200);
+  const supplyView = require('../../public/js/nito-supply');
+  const labels = {total: 'Total', transparent: 'Transparent', orchard: 'Orchard', unavailable: 'Unavailable'};
+  const beforeSummary = await (await fetch(base + '/ext/getsummary')).json();
+  assert.equal(supplyView.rows(beforeSummary, labels).length, 1);
+  for (const page of ['/', '/richlist', '/info', '/movement', '/address/' + transparent, '/block/' + preactivation.bestblockhash]) {
+    const result = await fetch(base + page);
+    assert.equal(result.status, 200, page);
+    assert.doesNotMatch(visibleText(await result.text()), /Orchard|Bech32x|getorchardpools/i, page + ' before activation');
+  }
   if (process.env.NITO_UI_HOLD) {
     console.log('UI_PREACTIVATION', JSON.stringify({base, evidence: temp}));
     await until(() => fs.existsSync(path.join(temp, 'finish-ui-preactivation')), 600000);
@@ -366,4 +378,18 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await until(async () => (await collect()).status === 'available');
   await index.sync(collect);
   assert.equal((await (await fetch(base + '/ext/getorchardpools')).json()).activated, true);
+  const afterSummary = await (await fetch(base + '/ext/getsummary')).json();
+  assert.equal(supplyView.rows(afterSummary, labels).length, 3);
+  assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"/);
+  assert.equal(process.pid, explorerProcessId, 'activation keeps the explorer process');
+  assert.equal(httpServer.listening, true);
+  assert.equal(httpServer.address().port, uiPort, 'activation keeps the same HTTP listener');
+  if (process.env.NITO_UI_HOLD) {
+    console.log('UI_REACTIVATION', JSON.stringify({base, evidence: temp}));
+    await until(() => fs.existsSync(path.join(temp, 'finish-ui-reactivation')), 600000);
+  }
+  fs.writeFileSync(path.join(temp, 'explorer-results.json'), JSON.stringify({base, cases, pools,
+    checks: ['activation', 'five transaction forms', 'mempool', 'restart', 'reorg', 'same-height reorg',
+      'interrupted write', 'duplicate sync', 'legacy refusal', 'HTTP API', 'HTML',
+      'no Orchard promotion before activation', 'automatic activation without explorer restart']}, null, 2));
 });
