@@ -1164,6 +1164,30 @@ tr {
   }
 }
 
+.nito-supply-body {
+  padding: 3px 12px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#supplypanel {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  .nito-supply-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+  &.nito-supply-active {
+    font-size: 12px;
+    .nito-supply-row { justify-content: space-between; }
+  }
+}
+
 .badge {
   a:link, a:visited, a:hover, a:active {
     color: #ffffff;

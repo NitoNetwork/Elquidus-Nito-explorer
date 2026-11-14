@@ -255,6 +255,14 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   settings.markets_page.enabled = true;
   settings.markets_page.exchanges.poloniex.enabled = true;
   settings.markets_page.exchanges.poloniex.trading_pairs = ['NITO/BTC'];
+  if (process.env.NITO_UI_HOLD) {
+    const panels = settings.shared_pages.page_header.panels;
+    for (const panel of Object.values(panels)) if (panel && typeof panel === 'object') panel.enabled = false;
+    ['network_panel', 'difficulty_panel', 'coin_supply_panel', 'logo_panel'].forEach((name, i) => {
+      panels[name].enabled = true; panels[name].display_order = i + 1;
+    });
+    settings.richlist_page.show_panels = true;
+  }
   await db.collection('markets').insertOne({market: 'poloniex', coin_symbol: 'NITO', pair_symbol: 'BTC', stale: true,
     last_success_at: Date.now() - 3600000, last_error: 'HTTP_503', chartdata: '[]',
     summary: {last: '0.00000001', high: '0.00000002', low: '0.00000001', volume: '1284565889.99999999'},

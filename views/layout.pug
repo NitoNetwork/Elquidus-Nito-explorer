@@ -23,6 +23,7 @@ html(lang='en')
     link(rel='stylesheet', href='/css/style.min.css' + (styleHash == null ? '' : '?h=' + styleHash))
     link(rel='stylesheet', href='/css/custom.min.css' + (customHash == null ? '' : '?h=' + customHash))
     script(src='/js/nito-amount.js')
+    script(src='/js/nito-supply.js')
     script(type='text/javascript', src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js', integrity='sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==', crossorigin='anonymous', referrerpolicy='no-referrer')
     script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js', integrity='sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p', crossorigin='anonymous')
     script(type='text/javascript', src='/js/custom.js')
@@ -351,7 +352,7 @@ html(lang='en')
           return '<div class="card-header"><strong>#{settings.localization.masternodecount}</strong></div><div class="card-body"><div id="masternodePanelLoading" class="header-panel"><i class="fa-solid fa-spinner fa-spin-pulse"></i></div><div id="masternodepanel" class="header-panel" style="display:none;"><span id="spnMasternodeCountOnline" class="fa-solid fa-circle-check" data-bs-toggle="tooltip" data-bs-placement="top"></span><label id="masternodeCountOnline" data-bs-toggle="tooltip" data-bs-placement="top"></label><label>&nbsp;/&nbsp;</label><label id="masternodeCountOffline" data-bs-toggle="tooltip" data-bs-placement="top"></label><span id="spnMasternodeCountOffline" class="fa-solid fa-triangle-exclamation" data-bs-toggle="tooltip" data-bs-placement="top"></span></div></div>';
         }
         function getCoinSupplyPanel() {
-          return `<div class="card-header"><strong>#{settings.localization.ex_supply} <span class="small fw-normal">(${"#{settings.coin.symbol}".replace(/"/g, '&quot;')})</span></strong></div><div class="card-body"><div id="supplyPanelLoading" class="header-panel"><i class="fa-solid fa-spinner fa-spin-pulse"></i></div><div id="supplypanel" class="header-panel" style="display:none;"><span class="fa-solid fa-chart-pie"></span><label id="supply"></label></div></div>`;
+          return `<div class="card-header"><strong>#{settings.localization.ex_supply} <span class="small fw-normal">(${"#{settings.coin.symbol}".replace(/"/g, '&quot;')})</span></strong></div><div class="card-body nito-supply-body"><div id="supplyPanelLoading" class="header-panel"><i class="fa-solid fa-spinner fa-spin-pulse"></i></div><div id="supplypanel" style="display:none;"><span id="supply"></span></div></div>`;
         }
         function getPricePanel() {
           return '<div class="card-header"><strong>Price <span class="small fw-normal">(#{market_currency})</span></strong></div><div class="card-body"><div id="pricePanelLoading" class="header-panel"><i class="fa-solid fa-spinner fa-spin-pulse"></i></div><div id="pricepanel" class="header-panel" style="display:none;"><span class="fa-solid fa-rocket"></span><label id="lastPrice">-</label></div></div>';
@@ -424,6 +425,7 @@ html(lang='en')
           }
         }
         function update_stats() {
+          const supplyLabels = !{JSON.stringify({total: settings.localization.nito_supply_total, transparent: settings.localization.nito_supply_transparent, orchard: settings.localization.nito_supply_orchard, unavailable: settings.localization.nito_unavailable})};
           const summary_headers = {
             Accept: 'application/json, text/javascript, */*; q=0.01'
           };
@@ -443,27 +445,16 @@ html(lang='en')
             $("#spnMasternodeCountOffline").prop("alt", mnOfflineText).prop("title", mnOfflineText).attr("data-bs-original-title", mnOfflineText);
             showTopPanelData('masternodepanel', 'masternodePanelLoading');
 
-            let supplyString = json.supply == null ? '#{settings.localization.nito_unavailable}' : json.supply;
             let diffString = json.difficulty;
             let hashrateString = json.hashrate;
             let splitValue, splitParts;
 
             if (!isNaN(json.difficulty))
               diffString = Number(json.difficulty).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
-            if (json.supply != null && !isNaN(json.supply))
-              supplyString = NitoAmount.format(json.supply);
             if (!isNaN(json.hashrate))
               hashrateString = Number(json.hashrate).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
 
-            $("#supply").text(supplyString);
-            $('#supply-pool-breakdown').remove();
-            if (json.pools && json.pools.activated === true) {
-              $('#supply').text('#{settings.localization.nito_supply_total}: ' + supplyString);
-              const details = $('<div id="supply-pool-breakdown" class="small text-start"></div>');
-              $('<div></div>').text('#{settings.localization.nito_supply_transparent}: ' + NitoAmount.format(json.pools.transparent.chainValue)).appendTo(details);
-              $('<div></div>').text('#{settings.localization.nito_supply_orchard}: ' + NitoAmount.format(json.pools.orchard.chainValue)).appendTo(details);
-              $('#supplypanel').after(details);
-            }
+            NitoSupply.render(document.getElementById('supplypanel'), json, supplyLabels);
             showTopPanelData('supplypanel', 'supplyPanelLoading');
 
             $("#marketCap").text(NitoAmount.marketValue(json.lastPrice, json.supply) || '#{settings.localization.nito_unavailable}');
@@ -511,7 +502,8 @@ html(lang='en')
               });
             }
           }, error: function () {
-            $('#supply-pool-breakdown, .market-stale-notice').remove();
+            NitoSupply.render(document.getElementById('supplypanel'), null, supplyLabels);
+            $('.market-stale-notice').remove();
             $('#supply, #lastPrice, #lastUSDPrice, #marketCap, #usdMarketCap').text('#{settings.localization.nito_unavailable}');
             showTopPanelData('supplypanel', 'supplyPanelLoading');
             showTopPanelData('pricepanel', 'pricePanelLoading');
@@ -1701,24 +1693,24 @@ html(lang='en')
             .col-lg-12
               if showPanels == true
                 .row.text-center.d-flex.justify-content-center
-                  div(class="col-lg-2 col-lg-offset-" + settings.paneloffset)
+                  div(class=settings.panel1 == 'coin_supply_panel' ? 'col-lg-3' : 'col-lg-2')
                     - if (settings.panel1 != '') {
                       .card.card-default.border-0.d-lg-block.d-block.cardSpacer(id='pnlOne')
                     - }
                   - if (settings.panel2 != '') {
-                    .col-lg-2
+                    div(class=settings.panel2 == 'coin_supply_panel' ? 'col-lg-3' : 'col-lg-2')
                       .card.card-default.border-0.d-lg-block.d-block.cardSpacer(id='pnlTwo')
                   - }
                   - if (settings.panel3 != '') {
-                    .col-lg-2
+                    div(class=settings.panel3 == 'coin_supply_panel' ? 'col-lg-3' : 'col-lg-2')
                       .card.card-default.border-0.d-lg-block.d-block.cardSpacer(id='pnlThree')
                   - }
                   - if (settings.panel4 != '') {
-                    .col-lg-2
+                    div(class=settings.panel4 == 'coin_supply_panel' ? 'col-lg-3' : 'col-lg-2')
                       .card.card-default.border-0.d-lg-block.d-block.cardSpacer(id='pnlFour')
                   - }
                   - if (settings.panel5 != '') {
-                  .col-lg-2
+                  div(class=settings.panel5 == 'coin_supply_panel' ? 'col-lg-3' : 'col-lg-2')
                     .card.card-default.border-0.d-lg-block.d-block.cardSpacer(id='pnlFive')
                   - }
               if settings.shared_pages.page_header.search.enabled == true && settings.shared_pages.page_header.search.position.toString().toLowerCase() == 'below-header'
@@ -1743,7 +1735,6 @@ html(lang='en')
               .container(style='padding-left:0;padding-right:0;')
                 .row.align-items-start
                   include ./includes/difficulty_chart.pug
-          include ./includes/nito-pools.pug
           block content
     div#footer-container(class=footerClasses, role='navigation')
       .col-4.navbar-nav

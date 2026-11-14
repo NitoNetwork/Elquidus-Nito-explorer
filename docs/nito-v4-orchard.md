@@ -80,7 +80,9 @@ and unclaimed rewards mean this total can differ from theoretical cumulative
 issuance. It is neither maximum supply nor an estimate of circulating coins.
 Shielding moves value between pools and does not destroy coins.
 
-The supply panel shows one total before activation. It expands to **Total**,
+The existing compact header supply panel shows one total before activation.
+There is no separate full-width supply section or explanatory copy in the panel.
+It expands to three stacked rows, **Total**,
 **Transparent** and **Orchard** only when a valid same-tip Core snapshot reports
 `activated: true`. The `activated` and `privateTxActivationHeight` fields must
 agree with `getblockchaininfo`; the explorer does not hardcode an activation
