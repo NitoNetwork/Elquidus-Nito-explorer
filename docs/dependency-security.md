@@ -29,6 +29,11 @@ not a guarantee that the application has no vulnerabilities.
   version range includes vulnerable releases. The existing synchronous discovery
   API, patterns and exclusions were checked with the current test runner. Review
   this override when updating Jasmine; do not apply a global glob override.
+- Version-pinned browser assets loaded from CDNs carry Subresource Integrity
+  hashes and anonymous CORS settings. Recompute and review each hash when changing
+  a URL or version. Google reCAPTCHA and hCaptcha scripts are provider-managed,
+  dynamic resources and cannot use SRI; they load only when the corresponding
+  optional integration is enabled.
 
 ## Validation after updates
 

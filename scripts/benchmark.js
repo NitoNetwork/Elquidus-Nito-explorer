@@ -5,7 +5,8 @@ const blkSync = require('../lib/block_sync');
 const settings = require('../lib/settings');
 const resumeSync = process.argv[2] == '1';
 
-let dbString = `mongodb://${settings.benchmark.address}:${settings.benchmark.port}/admin`
+let dbString = `mongodb://${settings.benchmark.address}:${settings.benchmark.port}/admin`;
+const benchmarkTarget = `${settings.benchmark.address}:${settings.benchmark.port}/${settings.benchmark.database}`;
 
 // prevent stopping of the sync script to be able to gracefully shut down
 process.on('SIGINT', () => {
@@ -50,7 +51,35 @@ function check_user_exists(exists, cb) {
       return cb();
     })
     .catch((error) => {
-      console.error('Error creating new user:'CHANGE_ME_USER'Error disconnecting from database:', err);
+      console.error('Error creating new user:', error);
+      exit(2);
+    });
+  }
+}
+
+function check_create_user(cb) {
+  // check if the benchmark database should be checked for the correct user
+  if (settings.benchmark.auto_add_user) {
+    // connect to the admin database without a username/password
+    mongoose.connect(dbString).then(() => {
+      // determine if the user already exists in the target database
+      mongoose.connection.db
+        .command({
+          usersInfo: {
+            user: settings.benchmark.user,
+            db: settings.benchmark.database
+          }
+        })
+        .then((userInfo) => {
+          // check if the user already exists
+          check_user_exists(userInfo.users.length > 0, function() {
+            // disconnect the current database connection
+            mongoose.disconnect().then(() => {
+              // finished checking the benchmark database user
+              return cb();
+            })
+            .catch((err) => {
+              console.error('Error disconnecting from database:', err);
               exit(2);
             });
           });
@@ -61,7 +90,7 @@ function check_user_exists(exists, cb) {
         });
     })
     .catch((err) => {
-      console.log('Error: Unable to connect to database: %s', dbString);
+      console.error('Unable to connect to benchmark database: %s', benchmarkTarget);
       exit(999);
     });
   } else
@@ -139,6 +168,7 @@ function delete_stats(cb) {
 console.log(`${settings.localization.script_launched}: ${process.pid}`);
 
 mongoose.set('strictQuery', true);
+mongoose.set('updatePipeline', true);
 
 // ensure the benchmark database user exists
 check_create_user(function() {
@@ -200,7 +230,7 @@ check_create_user(function() {
       });
     });
   }).catch((err) => {
-    console.log('Error: Unable to connect to database: %s', dbString);
+    console.error('Unable to connect to benchmark database: %s', benchmarkTarget);
     exit(999);
   });
 });

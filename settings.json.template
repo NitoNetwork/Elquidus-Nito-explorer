@@ -517,7 +517,7 @@
       // Mobile (0-575px)
       // Tablet (576-991px)
       // Desktop (>= 992px)
-      // This is a percentage value and must be a positive number between 1-100
+      // This is a positive percentage value; values above 100 enlarge the links
       // social_link_percent_height_desktop: Forced social link height percentage value for desktop screens
       "social_link_percent_height_desktop": 140,
       // social_link_percent_height_tablet: Forced social link height percentage value for tablet screens
@@ -876,12 +876,12 @@
       //            Use this setting to prevent specific wallet addresses from being displayed in the rich list and wealth distribution chart sections
       //            These wallet addresses will be completely removed from the rich list, but will still be viewable and accessible via the rest of the explorer pages as per normal
       //            Add as many wallet addresses as necessary in the following format: [ "EPUzEEHa45Rsn87WBos6SqkZZ8GrsfgvtZ", "EUzgat1r5AFyoTXK5WgTyM8kABPJY1SX7E" ]
-      "addresses": [ "" ],
+      "addresses": [],
       // include_burned_coins_in_distribution: Determine whether to include burned coins in the wealth distribution section or not
       //                                       This setting will need to be changed depending on whether your main coin supply value already has the burned coins removed from its total or not
       //                                       Set this value to false if your blockchain already has a mechanism for removing burned coins from the total supply and the burned coins will not be included in the distribution totals
       //                                       Set this value to true if your blockchain still has the burned coins included in its total supply and a 'Burned Coins' section will be added to the distribution table and chart
-      "include_burned_coins_in_distribution": true
+      "include_burned_coins_in_distribution": false
     }
   },
 
@@ -1411,55 +1411,7 @@
   // labels: a collection of settings that pertain to the list of customized wallet address labels
   //         Adding entries to this section will display a custom label beside each affected wallet address when displayed in the explorer
   //         NOTE: You can add as many address labels as desired
-  "labels": {
-  // BURN ADDRESS (en rouge)
-    "nito1qe9sx7cs674sp9ytnxzvuc4uuj7y4pq9swjqp77": {
-      "enabled": true,
-      "label": "BURN ADDRESS",
-      "type": "danger",
-      "url": "https://explorer.nito.network/address/nito1qe9sx7cs674sp9ytnxzvuc4uuj7y4pq9swjqp77"
-    },
-
-  // Nitopool.fr (en vert)
-    "nito1qyhgllwrvw46nzqm9ljf0h646ruuv40mhq5puer": {
-      "enabled": true,
-      "label": "Nitopool.fr",
-      "type": "success",
-      "url": "https://pool.nitopool.fr/"
-    },
-
-  // radioactive.sytes.net (en vert)
-    "nito1qk8dygzp5ywmdsmpe5cs7ak6vj4gm6mwcsgta7z": {
-      "enabled": true,
-      "label": "radioactive.sytes.net",
-      "type": "success",
-      "url": "http://radioactive.sytes.net:8080/NITO/"
-    },
-
-  // mecacex-SCAM (en rouge)
-    "nito1qxcdzs4sazdk6s37scflnevaxrwm6wjfhg5sarz": {
-      "enabled": true,
-      "label": "mecacex-SCAM",
-      "type": "danger",
-      "url": "https://mecacex.com/market/NITOUSDT"
-    },
-
-  // Minto.Day (en vert)
-    "nito1q56ngvra0dg73k28xfakhtvarac2vulhpresage": {
-      "enabled": true,
-      "label": "Minto.Day",
-      "type": "success",
-      "url": "https://minto.day/"
-    },
-
-   // rabid-rabbit.org (en vert)
-    "nito1qsy0mj88dhprvm2h6rwf04gg4ly70l6p5df7ry5": {
-      "enabled": true,
-      "label": "Rabid-Rabbit.org",
-      "type": "success",
-      "url": "https://rabid-rabbit.org/account/trade/NITO-USDT"
-    }
-  },
+  "labels": {},
 
   // default_coingecko_ids: a collection of settings that pertain to the list of coingecko api symbols and ids
   //                        Adding entries to this section will force a particular coin symbol to the associated coingecko id when the coingecko api is used for USD lookups and when using the markets_page.market_price = "COINGECKO" option
@@ -1471,8 +1423,7 @@
     { "symbol": "btc", "id": "bitcoin" },
     { "symbol": "eth", "id": "ethereum" },
     { "symbol": "usdt", "id": "tether" },
-    { "symbol": "ltc", "id": "litecoin" },
-    { "symbol": "exor", "id": "exor" }
+    { "symbol": "ltc", "id": "litecoin" }
   ],
 
   //api_cmds: A collection of settings that pertain to the list of customizable rpc api commands

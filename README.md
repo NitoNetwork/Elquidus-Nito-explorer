@@ -1,5 +1,7 @@
 # NITO eIquidus Explorer
 
+[![CI](https://github.com/NitoNetwork/Elquidus-Nito-explorer/actions/workflows/ci.yml/badge.svg)](https://github.com/NitoNetwork/Elquidus-Nito-explorer/actions/workflows/ci.yml)
+
 Public block explorer for the NITO network, based on the eIquidus community explorer codebase.
 
 This repository contains the explorer application and public deployment examples. Runtime secrets must stay outside Git in a local settings.json file.
@@ -87,8 +89,8 @@ Leave it blank for the standard single-database deployment.
 ## Application Setup
 
 ~~~bash
-git clone https://github.com/biigbang0001/explorer-eIquidus-NITO.git
-cd explorer-eIquidus-NITO
+git clone https://github.com/NitoNetwork/Elquidus-Nito-explorer.git
+cd Elquidus-Nito-explorer
 npm ci
 cp settings.json.template settings.json
 nano settings.json
@@ -118,7 +120,8 @@ before starting this version under PM2, so two explorers do not share the same p
 
 Prepare the chosen commit in a separate checkout, retain the existing application,
 settings and database backup for rollback, then run `npm ci`, `npm test` and
-`npm run test:v4`. Run `npm run test:integration` against an isolated Core regtest
+`npm run test:v4`. Run `npm run validate:publication` before publishing a source
+revision. Run `npm run test:integration` against an isolated Core regtest
 environment as described in the V4 guide. Review the migration requirements before
 switching the running application. Restart or reload the service once to load the
 new application and patched dependencies.
@@ -165,6 +168,19 @@ corruption. See [migration, preservation and rollback](docs/nito-v4-orchard.md#i
 for acceptance checks and the required historical export. Do not use these
 commands against production or switch databases while a writer is running.
 
+### Database backup, restore and deletion
+
+The inherited `create-backup`, `restore-backup` and `delete-database` commands
+are intentionally disabled and exit without changing data. Their former
+implementations passed credentials through shell commands, could download code at
+runtime and did not coordinate with the transactional writer.
+
+Use the version-matched MongoDB Database Tools as a separate operator procedure.
+Stop the writer first, keep credentials in a protected tools configuration rather
+than command-line arguments, write backups outside the source checkout and test
+every restore into a different isolated replica set. Database deletion and any
+production cutover require a separate, explicit operator decision.
+
 ## Nginx Reverse Proxy
 
 An example Nginx vhost with basic request rate limiting is available at:
@@ -197,6 +213,7 @@ the public bundle and known fee, and must not create searchable Bech32x balance 
 
 See [dependency maintenance and validation](docs/dependency-security.md) for the
 runtime baseline, lockfile policy and compatibility decisions.
+Security reports should follow the private process in [SECURITY.md](SECURITY.md).
 
 - Never commit settings.json.
 - Keep daemon RPC bound to 127.0.0.1.
@@ -206,4 +223,5 @@ runtime baseline, lockfile policy and compatibility decisions.
 
 ## License
 
-This repository follows the license of the eIquidus community explorer codebase.
+The explorer is distributed under the [BSD 3-Clause License](LICENSE). Bundled
+third-party notices are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

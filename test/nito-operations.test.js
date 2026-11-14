@@ -20,3 +20,25 @@ test('operation options reject ambiguous arguments instead of running an old des
     {isolated: true, 'source-db': 'old_copy', 'target-db': 'new_copy', resume: true});
   for (const args of [['--apply'], ['--target-db'], ['--source-db', '--target-db']]) assert.throws(() => options(args), /Unknown or incomplete/);
 });
+test('legacy database maintenance commands fail closed without touching data', () => {
+  const scripts = require('../package.json').scripts;
+  for (const [name, action] of Object.entries({
+    'create-backup': 'backup',
+    'restore-backup': 'restore',
+    'delete-database': 'delete'
+  })) {
+    assert.equal(scripts[name], `node ./scripts/unsupported_database_maintenance.js ${action}`);
+    const result = spawnSync(process.execPath,
+      ['./scripts/unsupported_database_maintenance.js', action],
+      {cwd: root, encoding: 'utf8'});
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /intentionally disabled/);
+    assert.match(result.stderr, /MongoDB Database Tools/);
+  }
+  const oldWriter = spawnSync(process.execPath, ['./scripts/sync.js', 'index'], {
+    cwd: root,
+    encoding: 'utf8'
+  });
+  assert.equal(oldWriter.status, 1);
+  assert.match(oldWriter.stderr, /legacy index writers are disabled/);
+});

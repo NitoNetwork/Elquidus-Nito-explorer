@@ -1,2 +1,0 @@
-* * * * * cd /opt/explorer-eIquidus-NITO && /usr/bin/flock -n /tmp/nito-explorer-sync.lock /usr/bin/node scripts/sync_nito.js >> /var/log/nito-explorer-sync.log 2>&1
-*/5 * * * * cd /opt/explorer-eIquidus-NITO && /usr/bin/flock -n /tmp/nito-explorer-market.lock /usr/bin/node scripts/sync.js market update >> /var/log/nito-explorer-market.log 2>&1

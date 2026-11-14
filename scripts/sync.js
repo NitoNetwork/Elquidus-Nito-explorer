@@ -983,26 +983,8 @@ if (lib.is_locked([database]) == false) {
           } else {
             // determine which index mode to run
             if (mode == 'reindex') {
-              const { execSync } = require('child_process');
-
-              try {
-                // delete the database
-                execSync(`node ./scripts/delete_database.js ${mode}`, {stdio : 'inherit'});
-              } catch (err) {
-                // delete_database.js was not successful, so exit
-                exit(1);
-              }
-
-              db.update_db(settings.coin.name, function(stats) {
-                // check if stats returned properly
-                if (stats !== false) {
-                  // start the block sync
-                  block_sync(true, stats);
-                } else {
-                  // update_db threw an error so exit
-                  exit(1);
-                }
-              });
+              console.error('Legacy index reindexing is disabled. Use npm run reindex with an isolated source and target.');
+              exit(1);
             } else if (mode == 'check') {
               db.update_db(settings.coin.name, function(stats) {
                 // check if stats returned properly

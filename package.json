@@ -2,9 +2,20 @@
   "name": "explorer",
   "version": "1.102.0",
   "private": true,
+  "packageManager": "npm@11.9.0",
+  "description": "Public block explorer for NITO Core V4 with exact transparent and Orchard pool accounting.",
+  "license": "BSD-3-Clause",
+  "homepage": "https://explorer.nito.network/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NitoNetwork/Elquidus-Nito-explorer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NitoNetwork/Elquidus-Nito-explorer/issues"
+  },
   "scripts": {
     "start": "node --stack-size=10000 ./bin/cluster",
-    "stop": "node ./scripts/stop_explorer.js",
+    "stop": "node ./scripts/pm2.js stop explorer",
     "start-instance": "npm run prestart && node --stack-size=10000 ./bin/cluster 1",
     "start-forever": "node scripts/unsupported_forever.js",
     "stop-forever": "node scripts/unsupported_forever.js",
@@ -28,14 +39,15 @@
     "rebuild-transparent-address-index": "node ./scripts/reindex_nito.js",
     "reindex-txcount": "node ./scripts/reindex_nito.js",
     "reindex-last": "node ./scripts/reindex_nito.js",
-    "create-backup": "node ./scripts/create_backup.js",
-    "restore-backup": "node ./scripts/restore_backup.js",
-    "delete-database": "node ./scripts/delete_database.js",
+    "create-backup": "node ./scripts/unsupported_database_maintenance.js backup",
+    "restore-backup": "node ./scripts/unsupported_database_maintenance.js restore",
+    "delete-database": "node ./scripts/unsupported_database_maintenance.js delete",
     "update-explorer": "node ./scripts/update_explorer.js",
     "benchmark": "node ./scripts/benchmark.js",
     "test:v4": "node --test test/nito-*.test.js",
     "test:integration": "node --test test/integration/nito-regtest.test.js",
     "test:core": "node ./node_modules/jasmine/bin/jasmine.js test/explorerSpec.js",
+    "validate:publication": "node ./scripts/validate_publication.js",
     "audit-index": "node scripts/audit_nito_index.js",
     "rollback-index": "node ./scripts/reindex_nito.js --rollback"
   },

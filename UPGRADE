@@ -1,4 +1,9 @@
-NOTE: As of v1.100.0-bae4d50, it is no longer necessary to manually restart the explorer after updating, as long as you are using the built-in update script `npm run update-explorer`. All other manual updates such as `git pull` will still require a restart to the explorer after updating.
+HISTORICAL UPSTREAM CHANGELOG — NOT AN UPGRADE GUIDE
+
+The inherited entries below describe older eIquidus releases. The automatic
+update command is disabled in this repository. Follow README.md and
+docs/nito-v4-orchard.md for the supported NITO V4 installation, validation,
+migration and rollback procedures.
 
 1.102.0 [June 14, 2023]
 -Added better support for NODE_ENV

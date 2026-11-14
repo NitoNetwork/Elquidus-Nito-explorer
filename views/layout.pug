@@ -15,11 +15,11 @@ html(lang='en')
     if settings.shared_pages.favicons.favicon192 != ''
       link(rel='icon', href='/' + settings.shared_pages.favicons.favicon192, sizes='192x192')
     link(rel='stylesheet', href='/css/themes/' + settings.shared_pages.theme.toLowerCase() + '/bootstrap.min.css' + (themeHash == null ? '' : '?h=' + themeHash))
-    link(rel='stylesheet', href='https://use.fontawesome.com/releases/v6.4.2/css/all.css')
+    link(rel='stylesheet', href='https://use.fontawesome.com/releases/v6.4.2/css/all.css', integrity='sha384-blOohCVdhjmtROpu8+CfTnUWham9nkX7P7OZQMst+RUnhtoY/9qemFAkIKOYxDI3', crossorigin='anonymous', referrerpolicy='no-referrer')
     if active == 'network'
-      link(rel='stylesheet', href='https://cdnjs.cloudflare.com/ajax/libs/flag-icons/6.11.1/css/flag-icons.min.css')
-    link(rel='stylesheet', type='text/css', href='https://cdn.datatables.net/v/bs5/dt-1.13.6/datatables.min.css')
-    link(rel='stylesheet', href='https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.3.2/styles/overlayscrollbars.min.css')
+      link(rel='stylesheet', href='https://cdnjs.cloudflare.com/ajax/libs/flag-icons/6.11.1/css/flag-icons.min.css', integrity='sha384-RjU1qooNCynGhHXy5Oz13ftg7k1N+VbBHpQSp7QD8a59yoHBM4ZVYuLOVQJDnys/', crossorigin='anonymous', referrerpolicy='no-referrer')
+    link(rel='stylesheet', type='text/css', href='https://cdn.datatables.net/v/bs5/dt-1.13.6/datatables.min.css', integrity='sha384-sCZYunHX8GThRgsoy5Bs9olPSbh1gc5ZNLt5inUHhqwe1OnOMvGGBiNCAiFZ1VO4', crossorigin='anonymous', referrerpolicy='no-referrer')
+    link(rel='stylesheet', href='https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.3.2/styles/overlayscrollbars.min.css', integrity='sha384-A9lWWg3WeZ3Ok+RZtRH8S0gBfn15yAr5QdGTAmvhXLi1IiSWzOrNTNbBUhrXsdY2', crossorigin='anonymous', referrerpolicy='no-referrer')
     link(rel='stylesheet', href='/css/style.min.css' + (styleHash == null ? '' : '?h=' + styleHash))
     link(rel='stylesheet', href='/css/custom.min.css' + (customHash == null ? '' : '?h=' + customHash))
     script(src='/js/nito-amount.js')
@@ -27,7 +27,7 @@ html(lang='en')
     script(type='text/javascript', src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js', integrity='sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==', crossorigin='anonymous', referrerpolicy='no-referrer')
     script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js', integrity='sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p', crossorigin='anonymous')
     script(type='text/javascript', src='/js/custom.js')
-    script(type='text/javascript', src='https://cdn.datatables.net/v/bs5/dt-1.13.6/datatables.min.js')
+    script(type='text/javascript', src='https://cdn.datatables.net/v/bs5/dt-1.13.6/datatables.min.js', integrity='sha384-bAJNiIB6+ZmuELolE/dglbuscq0MwgRz+loxlf9v7yo54nDLQ1j8DoTyB3X5625u', crossorigin='anonymous', referrerpolicy='no-referrer')
     script(type='text/javascript', src='https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.3.2/browser/overlayscrollbars.browser.es6.min.js', integrity="sha512-jh4tHrf3Zaee6k2wOl1kVm4Gm5uIFbOQkUPfA419yLxADm1Q9jtihcGAJUl9ThBR8yc4/VYCOQCY/K87g14kSw==", crossorigin="anonymous", referrerpolicy="no-referrer")
     - var showPanels = false
     - var showNethashChart = false
@@ -170,14 +170,14 @@ html(lang='en')
     if active == 'home' || active == 'address' || active == 'block' || active == 'markets' || active == 'masternodes' || active == 'movement' || active == 'network' || active == 'orphans' || active == 'reward' || active == 'richlist' || active == 'tx'
       include ./includes/common.pug
     if active == 'markets' || active == 'richlist' || active == 'reward' || showNethashChart == true || showDifficultyChart == true
-      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js')
+      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js', integrity='sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC', crossorigin='anonymous', referrerpolicy='no-referrer')
     if active == 'markets'
-      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js')
+      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js', integrity='sha384-elIw5jAwGpYjdlRvfI/lttdMkYz0NmTHFcCpQN62ztww5KWfnZby4PZwnKlVXywY', crossorigin='anonymous', referrerpolicy='no-referrer')
     if active == 'markets' || showNethashChart == true || showDifficultyChart == true
-      script(type='text/javascript', src='https://cdn.jsdelivr.net/gh/joeuhren/chartjs-plugin-crosshair@v2.0.5/build/chartjs-plugin-crosshair.min.js')
-      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1')
+      script(type='text/javascript', src='https://cdn.jsdelivr.net/gh/joeuhren/chartjs-plugin-crosshair@v2.0.5/build/chartjs-plugin-crosshair.min.js', integrity='sha384-hImK/l6/FtWg+mbUOXprlR8F5LPbHggonjv5vSMdRifHgVNOVSg3TCsQezUSrLsV', crossorigin='anonymous', referrerpolicy='no-referrer')
+      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1', integrity='sha384-7cWzHabR6ZyfMWzZgVssYaOQRTccHUWZ0F09AanlF3RAJ/JNyFnIma2JTYIVKEUP', crossorigin='anonymous', referrerpolicy='no-referrer')
     if showNethashChart == true || showDifficultyChart == true
-      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js')
+      script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js', integrity='sha384-3N9GHhCtN3CQef6tNfqgZlv7sQLYIkcChN+uaTZ7xVdzKYp/SjBNPxa92+hM7EAY', crossorigin='anonymous', referrerpolicy='no-referrer')
     - var sideBarClasses = [];
     if settings.shared_pages.page_header.bgcolor != null && settings.shared_pages.page_header.bgcolor != ''
       - sideBarClasses.push('bg-' + settings.shared_pages.page_header.bgcolor);

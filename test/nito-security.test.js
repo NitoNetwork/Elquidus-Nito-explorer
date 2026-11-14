@@ -5,6 +5,14 @@ const http = require('node:http');
 const {gzipSync} = require('node:zlib');
 const express = require('express');
 const bodyParser = require('body-parser');
+const settings = require('../lib/settings');
+
+test('public defaults contain no operator labels or inherited burn exclusions', () => {
+  assert.deepEqual(settings.labels, {});
+  assert.deepEqual(settings.richlist_page.burned_coins.addresses, []);
+  assert.equal(settings.richlist_page.burned_coins.include_burned_coins_in_distribution, false);
+  assert.equal(settings.default_coingecko_ids.some(item => item.symbol === 'exor'), false);
+});
 
 test('compressed request errors cannot terminate the HTTP parser or subsequent requests', async t => {
   const app = express();
