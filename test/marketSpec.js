@@ -4,6 +4,7 @@ const http = require('node:http');
 const poloniex = require('../lib/markets/poloniex');
 const money = require('../lib/market-decimal');
 const marketState = require('../lib/market-state');
+const priceState = require('../lib/market-price-state');
 
 describe('Poloniex market integration (local HTTP fixtures)', () => {
   let server, baseUrl, handler, calls;
@@ -154,5 +155,77 @@ describe('Market persistence contract', () => {
     expect(stored.summary.last).toBe(recovered.last);
     expect(stored.stale).toBeFalse();
     expect(stored.last_error).toBeNull();
+  });
+});
+
+describe('Global market price freshness', () => {
+  const now = 1794660000000;
+  it('exposes absent, legacy zero and invalid prices as null rather than zero', () => {
+    for (const row of [null, {}, {last_price: 0, last_usd_price: 0}, {last_price: NaN, last_usd_price: Infinity}]) {
+      const result = priceState.read(row, now);
+      expect(result.last_price).toBeNull();
+      expect(result.last_usd_price).toBeNull();
+      expect(result.market_price.status).toBe('unavailable');
+    }
+  });
+  it('retains a failed quote as explicitly stale, marks old metadata and supports recovery', () => {
+    const fresh = priceState.success('0.00000001', '0.01', now);
+    expect(priceState.read(fresh, now + 1).market_price.status).toBe('available');
+    const failed = {...fresh, ...priceState.failure({code: 'HTTP_503'}, now + 2)};
+    const response = priceState.read(failed, now + 3);
+    expect(response.last_price).toBe(0.00000001);
+    expect(response.market_price.status).toBe('stale');
+    expect(response.market_price.error).toBe('HTTP_503');
+    expect(response.market_price.last_success_at).toBe(now);
+    expect(priceState.read(fresh, now + marketState.MAX_AGE_MS + 1).market_price.status).toBe('stale');
+    expect(priceState.read({last_price: 0.01}, now).market_price.status).toBe('stale');
+    expect(priceState.read({...failed, ...priceState.success(0.02, 0.03, now + 4)}, now + 5).market_price.status).toBe('available');
+  });
+  it('refuses incomplete successful provider responses before writing freshness', () => {
+    for (const values of [[null, 1], [1, null], [0, 1], [1, -1], [Infinity, 1]])
+      expect(() => priceState.success(...values, now)).toThrow();
+  });
+});
+
+describe('Coingecko quote dependency', () => {
+  function client(status, body) {
+    const source = require('node:fs').readFileSync(require.resolve('../lib/apis/coingecko'), 'utf8');
+    const sandbox = { module: {exports: {}}, console,
+      require(name) {
+        if (name !== 'postman-request') throw new Error('Unexpected dependency');
+        return (options, cb) => {
+          expect(options.timeout).toBe(10000);
+          cb(null, {statusCode: status}, body);
+        };
+      }
+    };
+    require('node:vm').runInNewContext(source, sandbox);
+    return sandbox.module.exports;
+  }
+  it('does not accept a success-shaped quote body with HTTP 500', done => {
+    client(500, {nito: {btc: 0.01, usd: 1}}).get_market_prices('nito', 'btc', '', (error, quote, usd) => {
+      expect(error).toContain('HTTP error 500');
+      expect(quote).toBeNull(); expect(usd).toBeNull(); done();
+    });
+  });
+  it('rejects a malformed currency-list response before averaging', done => {
+    client(200, {error: 'unavailable'}).get_coin_data('', (error, list) => {
+      expect(error).toBeTruthy(); expect(list).toBeNull(); done();
+    });
+  });
+  it('rejects partial conversion data instead of publishing a partial average', done => {
+    client(200, {bitcoin: {btc: 1, usd: 100}}).get_avg_market_prices('bitcoin,ethereum', 'btc', [
+      {currency: 'BTC', coingecko_id: 'bitcoin', last_price: 0.01},
+      {currency: 'ETH', coingecko_id: 'ethereum', last_price: 0.1}
+    ], '', (error, quote, usd) => {
+      expect(error).toBe('Incomplete market price response');
+      expect(quote).toBeNull(); expect(usd).toBeNull(); done();
+    });
+  });
+  it('passes a complete positive quote for atomic freshness validation', done => {
+    client(200, {nito: {btc: 0.01, usd: 1}}).get_market_prices('nito', 'btc', '', (error, quote, usd) => {
+      expect(error).toBeNull();
+      expect(priceState.success(quote, usd).last_price).toBe(0.01); done();
+    });
   });
 });

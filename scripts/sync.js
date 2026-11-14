@@ -614,7 +614,7 @@ function check_show_sync_message(blocks_to_sync) {
 function get_market_price(market_array) {
   if (marketFailures > 0 || stopSync) {
     console.log('Market sync incomplete; last successful prices and timestamp retained.');
-    return exit(1);
+    return fail_market_sync(new Error('Market sync incomplete'));
   }
   // check how the market price should be updated
   if (settings.markets_page.market_price == 'COINGECKO') {
@@ -634,31 +634,28 @@ function get_market_price(market_array) {
             // get current stats
             Stats.findOne({coin: settings.coin.name}).then((stats) => {
               // update market stat prices
-              Stats.updateOne({coin: settings.coin.name}, {
-                last_price: (last_price == null ? 0 : last_price),
-                last_usd_price: (last_usd_price == null ? 0 : last_usd_price)
-              }).then(() => {
+              save_market_prices(last_price, last_usd_price).then(() => {
                 // market prices updated successfully
                 finish_market_sync();
               }).catch((err) => {
                 // error saving stats
                 console.log(err);
-                exit(1);
+                fail_market_sync(new Error('Market sync failed'));
               });
             }).catch((err) => {
               // error getting stats
               console.log(err);
-              exit(1);
+              fail_market_sync(new Error('Market sync failed'));
             });
           } else {
             // coingecko api returned an error
             console.log(`${settings.localization.ex_error}: ${err}`);
-            exit(1);
+            fail_market_sync(new Error('Market sync failed'));
           }
         });
       } else {
         // coingecko_id is not set which should have already thrown an error, so just exit
-        exit(1);
+        fail_market_sync(new Error('Market sync failed'));
       }
     });
   } else {
@@ -683,12 +680,13 @@ function get_market_price(market_array) {
             market_array[m].coingecko_id = coin_list[index].id;
           } else {
             // coin symbol not found in the api
+            marketFailures++;
             console.log('Error: Cannot find symbol "' + market_array[m].currency + '" in the coingecko api');
           }
         }
 
         // check if any api_ids were found
-        if (api_ids != '') {
+        if (api_ids != '' && marketFailures === 0) {
           const coingecko = require('../lib/apis/coingecko');
           const currency = lib.get_market_currency_code();
 
@@ -697,48 +695,49 @@ function get_market_price(market_array) {
             // check for errors
             if (mkt_err == null) {
               // update the last usd price
-              Stats.updateOne({coin: settings.coin.name}, {
-                last_price: last_price,
-                last_usd_price: last_usd
-              }).then(() => {
+              save_market_prices(last_price, last_usd).then(() => {
                 // market price updated successfully
                 finish_market_sync();
               }).catch((err) => {
                 // error saving stat data
                 console.log(err);
-                exit(1);
+                fail_market_sync(new Error('Market sync failed'));
               });
             } else {
               // coingecko api returned an error
               console.log(`Error: ${mkt_err}`);
-              exit(1);
+              fail_market_sync(new Error('Market sync failed'));
             }
           });
         } else {
           // no api_ids found so cannot continue to getting the usd price and error msgs were already thrown, so just exit
-          exit(1);
+          fail_market_sync(new Error('Market sync failed'));
         }
       } else {
         // coingecko api returned an error
         console.log(`Error: ${coin_err}`);
-        exit(1);
+        fail_market_sync(new Error('Market sync failed'));
       }
     });
   }
 }
 
+function save_market_prices(price, usd) {
+  return Promise.resolve().then(() => Stats.updateOne({coin: settings.coin.name}, {
+    $set: require('../lib/market-price-state').success(price, usd)
+  }));
+}
+
+function fail_market_sync(error) {
+  Stats.updateOne({coin: settings.coin.name}, {
+    $set: require('../lib/market-price-state').failure(error)
+  }).then(() => exit(1)).catch(err => { console.log(err); exit(1); });
+}
+
 function finish_market_sync() {
-  // update markets_last_updated value
-  db.update_last_updated_stats(settings.coin.name, { markets_last_updated: Math.floor(new Date() / 1000) }, function() {
-    // check if the script stopped prematurely
-    if (stopSync) {
-      console.log('Market sync was stopped prematurely');
-      exit(1);
-    } else {
-      console.log('Market sync complete');
-      exit(0);
-    }
-  });
+  if (stopSync) return fail_market_sync(new Error('Market sync stopped'));
+  console.log('Market sync complete');
+  exit(0);
 }
 
 function coingecko_coin_list_api(market_symbols, cb) {

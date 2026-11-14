@@ -266,12 +266,34 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await require('mongoose').disconnect();
   await require('mongoose').connect(mongo.getUri(dbName));
   const app = require('../../app');
-  app.locals.settings = settings;
   const uiPort = await port();
   httpServer = app.listen(uiPort, '127.0.0.1');
   const base = `http://127.0.0.1:${uiPort}`;
   const response = await fetch(base + '/ext/getorchardpools');
   assert.equal(response.status, 200); assert.deepEqual(await response.json(), pools);
+  const priceState = require('../../lib/market-price-state');
+  // The real MongoDB -> stats -> HTTP path must retain provider status everywhere.
+  await db.collection('coinstats').updateOne({coin: 'Nito'}, {$set: {last_price: 0, last_usd_price: 0}});
+  for (const endpoint of ['/ext/getsummary', '/ext/getbasicstats', '/ext/getcurrentprice']) {
+    const result = await (await fetch(base + endpoint)).json();
+    assert.equal(result.market_price.status, 'unavailable', endpoint);
+    assert.equal(endpoint.endsWith('getsummary') ? result.lastUSDPrice : result.last_price_usd, null);
+  }
+  const quoteTime = Date.now();
+  await db.collection('coinstats').updateOne({coin: 'Nito'}, {$set: priceState.success(0.000001, 0.0123, quoteTime)});
+  for (const endpoint of ['/ext/getsummary', '/ext/getbasicstats', '/ext/getcurrentprice']) {
+    const result = await (await fetch(base + endpoint)).json();
+    assert.equal(result.market_price.status, 'available', endpoint);
+    assert.equal(endpoint.endsWith('getsummary') ? result.lastUSDPrice : result.last_price_usd, 0.0123);
+  }
+  await db.collection('coinstats').updateOne({coin: 'Nito'}, {$set: priceState.failure({code: 'HTTP_503'})});
+  for (const endpoint of ['/ext/getsummary', '/ext/getbasicstats', '/ext/getcurrentprice']) {
+    const result = await (await fetch(base + endpoint)).json();
+    assert.equal(result.market_price.status, 'stale', endpoint);
+    assert.equal(result.market_price.last_success_at, quoteTime);
+    assert.equal(result.market_price.error, 'HTTP_503');
+    assert.equal(endpoint.endsWith('getsummary') ? result.lastUSDPrice : result.last_price_usd, 0.0123);
+  }
   for (const name of Object.keys(cases)) {
     const json = await (await fetch(base + '/ext/gettx/' + cases[name].id)).json();
     assert.equal(json.tx.fee_nitoshi, cases[name].tx.fee_nitoshi);

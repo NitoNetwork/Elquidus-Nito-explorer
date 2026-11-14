@@ -28,6 +28,17 @@ stale; legacy records with no success timestamp are unverified. A later successf
 refresh clears that state. `sync-markets` returns a failure if a configured pair
 fails, preserving the last successful aggregate price and update timestamp.
 
+Global price and capitalization panels use the same freshness policy. The
+`getsummary`, `getbasicstats` and `getcurrentprice` APIs include a `market_price`
+object with `status` (`available`, `stale` or `unavailable`), last success/attempt
+timestamps in milliseconds, a provider error code and per-currency availability.
+Missing, invalid or legacy default-zero prices are null. Retained positive quotes
+are explicitly stale after a failed update, after thirty minutes, or when legacy
+records lack a verified success timestamp. A successful aggregate refresh writes
+both quotes and freshness metadata together; incomplete currency conversions
+cannot become a fresh price. Displaying a stale price must also identify derived
+market capitalization as stale.
+
 Run `npm test` for deterministic coverage. The suite exercises the real HTTP
 adapter against an ephemeral loopback server, including success, empty data,
 HTTP 429/500/503, invalid bodies, timeout, socket reset, partial failure, exact

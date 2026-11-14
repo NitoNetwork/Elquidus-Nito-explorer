@@ -497,15 +497,19 @@ html(lang='en')
             }
             showTopPanelData('hashratepanel', 'hashratePanelLoading');
 
-            splitValue = Number(json.lastPrice).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
-            splitParts = splitValue.split('.');
-            $("#lastPrice").html(splitParts[0] + '.<span class="decimal">' + splitParts[1] + '</span>');
+            $("#lastPrice").text(NitoAmount.marketValue(json.lastPrice, '1') || '#{settings.localization.nito_unavailable}');
             showTopPanelData('pricepanel', 'pricePanelLoading');
 
-            splitValue = Number(json.lastUSDPrice).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
-            splitParts = splitValue.split('.');
-            $("#lastUSDPrice").html(splitParts[0] + '.<span class="decimal">' + splitParts[1] + '</span>');
+            $("#lastUSDPrice").text(NitoAmount.marketValue(json.lastUSDPrice, '1') || '#{settings.localization.nito_unavailable}');
             showTopPanelData('usdpricepanel', 'usdPricePanelLoading');
+            $('.market-stale-notice').remove();
+            if (json.market_price && json.market_price.status === 'stale') {
+              ['#lastPrice', '#lastUSDPrice', '#marketCap', '#usdMarketCap'].forEach(function (id) {
+                const hasQuote = id.toLowerCase().includes('usd') ? json.lastUSDPrice != null : json.lastPrice != null;
+                if (hasQuote) $('<span class="market-stale-notice small d-block text-warning" role="status"></span>')
+                  .text('#{settings.localization.mkt_data_stale}').insertAfter(id);
+              });
+            }
           }});
         }
         $(document).ready(function() {

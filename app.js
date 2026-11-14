@@ -451,8 +451,9 @@ app.use('/ext/getcurrentprice', function(req, res) {
     db.get_stats(settings.coin.name, function (stats) {
       const currency = lib.get_market_currency_code();
 
-      eval('var p_ext = { "last_price_' + currency.toLowerCase() + '": stats.last_price, "last_price_usd": stats.last_usd_price, }');
-      res.send(p_ext);
+      const prices = require('./lib/market-price-state').read(stats);
+      res.send({ ['last_price_' + currency.toLowerCase()]: prices.last_price,
+        last_price_usd: prices.last_usd_price, market_price: prices.market_price });
     });
   } else
     res.end(settings.localization.method_disabled);
@@ -583,8 +584,9 @@ app.use('/ext/getsummary', function(req, res) {
                   supply: (stats == null ? null : stats.supply),
                   pools: stats && stats.pools, supply_scope: 'confirmed_chain_value_including_immature',
                   hashrate: hashrate,
-                  lastPrice: (stats == null || stats.last_price == null ? 0 : stats.last_price),
-                  lastUSDPrice: (stats == null || stats.last_usd_price == null ? 0 : stats.last_usd_price),
+                  lastPrice: (stats == null ? null : stats.last_price),
+                  lastUSDPrice: (stats == null ? null : stats.last_usd_price),
+                  market_price: stats?.market_price || require('./lib/market-price-state').read(null).market_price,
                   connections: (connections ? connections : '-'),
                   blockcount: (blockcount ? blockcount : '-'),
                   masternodeCountOnline: (masternodestotal && mn_enabled != 0 ? mn_enabled : '-'),
