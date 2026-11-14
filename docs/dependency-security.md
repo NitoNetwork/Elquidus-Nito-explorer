@@ -5,6 +5,9 @@ with `npm ci`. The `.nvmrc` file identifies the validated baseline. npm rejects
 unsupported runtimes, and startup checks the runtime again. Do not run
 `npm audit fix --force`, `npm update`, or download a supervisor during startup.
 Review dependency changes and commit the resulting lockfile before installation.
+Dependabot proposes patch and minor updates within the reviewed major versions.
+Major migrations require an explicit compatibility review and the complete
+validation sequence; they are not grouped into automatic maintenance pull requests.
 
 Run both `npm audit --omit=dev` and `npm audit`. PM2 is a runtime dependency;
 development-only audit results must not be used to exclude an active supervisor.

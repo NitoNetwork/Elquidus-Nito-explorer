@@ -10,6 +10,14 @@ updates:
       npm-security-and-maintenance:
         patterns:
           - "*"
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Major upgrades require the full compatibility and integration review.
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
