@@ -73,7 +73,7 @@ test('private receivers are never public addresses; legacy pseudo outputs are re
   assert.deepEqual(tx.vout, []); assert.equal(tx.total, null); assert.equal(tx.privacy, 'unknown');
 });
 
-const tip = {chain: 'regtest', blocks: 10, bestblockhash: 'a'.repeat(64)};
+const tip = {chain: 'regtest', blocks: 10, bestblockhash: 'a'.repeat(64), activated: true, privateTxActivationHeight: 1};
 function pools() { return {...tip, orchard: {monitored: true, chainValueNitoshi: '1', chainValue: '0.00000001'},
   transparent: {monitored: true, chainValueNitoshi: '9007199254740992', chainValue: '90071992.54740992'},
   total: {monitored: true, chainValueNitoshi: '9007199254740993', chainValue: '90071992.54740993'}}; }
@@ -107,4 +107,21 @@ test('mid-collection reorgs and RPC outages invalidate the entire pool snapshot'
   });
   assert.equal((await collect()).status, 'unavailable');
   assert.equal((await collector(fail)()).status, 'unavailable');
+});
+
+test('activation follows explicit current Core tip metadata, including a retreat below activation', async () => {
+  const {activation} = require('../lib/nito-pools');
+  assert.equal(activation({...tip, blocks: 0, activated: false}), false);
+  assert.equal(activation(tip), true);
+  for (const invalid of [{...tip, activated: undefined}, {...tip, activated: false}, {...tip, privateTxActivationHeight: undefined}])
+    assert.throws(() => activation(invalid));
+  assert.throws(() => validate({...pools(), privateTxActivationHeight: 2}, tip));
+  let current = {...tip};
+  const collect = collector(async method => method === 'getblockchaininfo' ? current :
+    method === 'getindexinfo' ? {coinstatsindex: {synced: true, best_block_height: current.blocks}} : {...pools(), ...current});
+  assert.equal((await collect()).activated, true);
+  current = {...tip, blocks: 0, bestblockhash: '0'.repeat(64), activated: false};
+  assert.equal((await collect()).activated, false);
+  current = {...tip, activated: undefined};
+  assert.equal((await collect()).status, 'unavailable');
 });

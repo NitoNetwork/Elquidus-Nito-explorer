@@ -21,11 +21,11 @@
     "sync-peers": "node ./scripts/sync.js peers",
     "sync-masternodes": "node ./scripts/sync.js masternodes",
     "check-blocks": "node ./scripts/sync_nito.js",
-    "reindex": "node ./scripts/sync.js index reindex",
-    "reindex-rich": "node ./scripts/sync.js index reindex-rich",
-    "rebuild-transparent-address-index": "node ./scripts/rebuild_transparent_address_index.js",
-    "reindex-txcount": "node ./scripts/sync.js index reindex-txcount",
-    "reindex-last": "node ./scripts/sync.js index reindex-last",
+    "reindex": "node ./scripts/reindex_nito.js",
+    "reindex-rich": "node ./scripts/reindex_nito.js",
+    "rebuild-transparent-address-index": "node ./scripts/reindex_nito.js",
+    "reindex-txcount": "node ./scripts/reindex_nito.js",
+    "reindex-last": "node ./scripts/reindex_nito.js",
     "create-backup": "node ./scripts/create_backup.js",
     "restore-backup": "node ./scripts/restore_backup.js",
     "delete-database": "node ./scripts/delete_database.js",
@@ -34,7 +34,8 @@
     "test:v4": "node --test test/nito-*.test.js",
     "test:integration": "node --test test/integration/nito-regtest.test.js",
     "test:core": "node ./node_modules/jasmine/bin/jasmine.js test/explorerSpec.js",
-    "audit-index": "node scripts/audit_nito_index.js"
+    "audit-index": "node scripts/audit_nito_index.js",
+    "rollback-index": "node ./scripts/reindex_nito.js --rollback"
   },
   "dependencies": {
     "async": "^3.2.4",

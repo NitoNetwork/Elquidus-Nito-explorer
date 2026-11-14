@@ -16,6 +16,7 @@ var database = 'index';
 var block_start = 1;
 var lockCreated = false;
 var stopSync = false;
+var marketFailures = 0;
 
 // prevent stopping of the sync script to be able to gracefully shut down
 process.on('SIGINT', () => {
@@ -611,6 +612,10 @@ function check_show_sync_message(blocks_to_sync) {
 }
 
 function get_market_price(market_array) {
+  if (marketFailures > 0 || stopSync) {
+    console.log('Market sync incomplete; last successful prices and timestamp retained.');
+    return exit(1);
+  }
   // check how the market price should be updated
   if (settings.markets_page.market_price == 'COINGECKO') {
     // find the coingecko id
@@ -1357,19 +1362,17 @@ if (lib.is_locked([database]) == false) {
 
                                 // only add to the market_array if market data is being averaged
                                 if (settings.markets_page.market_price == 'AVERAGE') {
-                                  // check if the currency already exists in the market array
-                                  const index = market_array.findIndex(item => item.currency.toUpperCase() == split_pair[1].toUpperCase());
-
-                                  if (index != -1) {
-                                    // update the last_price
-                                    market_array[index].last_price = (market_array[index].last_price + last_price) / 2;
-                                  } else {
-                                    // add new object to the array
-                                    market_array.push({currency: split_pair[1], last_price: last_price});
+                                  try {
+                                    require('../lib/market-decimal').addQuote(market_array, split_pair[1], last_price);
+                                  } catch (error) {
+                                    marketFailures++;
+                                    console.log('%s[%s] Error: %s', key, pair_key, error.message);
                                   }
                                 }
-                              } else
+                              } else {
+                                marketFailures++;
                                 console.log('%s[%s] Error: %s', key, pair_key, err);
+                              }
 
                               complete++;
 
@@ -1378,6 +1381,7 @@ if (lib.is_locked([database]) == false) {
                             });
                           });
                         } else {
+                          marketFailures++;
                           console.log('%s[%s] Error: Market not found in local database. Please restart the explorer', key, pair_key);
                           complete++;
 
@@ -1387,6 +1391,7 @@ if (lib.is_locked([database]) == false) {
                       });
                     } else {
                       // market pair not formatted correctly
+                      marketFailures++;
                       console.log('%s market pair is invalid', pair_key);
                       complete++;
 

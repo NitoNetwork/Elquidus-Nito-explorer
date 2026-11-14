@@ -22,6 +22,7 @@ html(lang='en')
     link(rel='stylesheet', href='https://cdnjs.cloudflare.com/ajax/libs/overlayscrollbars/2.3.2/styles/overlayscrollbars.min.css')
     link(rel='stylesheet', href='/css/style.min.css' + (styleHash == null ? '' : '?h=' + styleHash))
     link(rel='stylesheet', href='/css/custom.min.css' + (customHash == null ? '' : '?h=' + customHash))
+    script(src='/js/nito-amount.js')
     script(type='text/javascript', src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js', integrity='sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==', crossorigin='anonymous', referrerpolicy='no-referrer')
     script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js', integrity='sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p', crossorigin='anonymous')
     script(type='text/javascript', src='/js/custom.js')
@@ -450,27 +451,31 @@ html(lang='en')
             if (!isNaN(json.difficulty))
               diffString = Number(json.difficulty).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
             if (json.supply != null && !isNaN(json.supply))
-              supplyString = json.supply;
+              supplyString = NitoAmount.format(json.supply);
             if (!isNaN(json.hashrate))
               hashrateString = Number(json.hashrate).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
 
             $("#supply").text(supplyString);
+            $('#supply-pool-breakdown').remove();
+            if (json.pools && json.pools.activated === true) {
+              $('#supply').text('#{settings.localization.nito_supply_total}: ' + supplyString);
+              const details = $('<div id="supply-pool-breakdown" class="small text-start"></div>');
+              $('<div></div>').text('#{settings.localization.nito_supply_transparent}: ' + NitoAmount.format(json.pools.transparent.chainValue)).appendTo(details);
+              $('<div></div>').text('#{settings.localization.nito_supply_orchard}: ' + NitoAmount.format(json.pools.orchard.chainValue)).appendTo(details);
+              $('#supplypanel').after(details);
+            }
             showTopPanelData('supplypanel', 'supplyPanelLoading');
 
-            splitValue = Number(parseFloat(json.lastPrice).toFixed(8) * parseInt(parseFloat(json.supply).toFixed(0))).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
-            splitParts = splitValue.split('.');
-            $("#marketCap").html(splitParts[0] + '.<span class="decimal">' + splitParts[1] + '</span>');
+            $("#marketCap").text(NitoAmount.marketValue(json.lastPrice, json.supply) || '#{settings.localization.nito_unavailable}');
             showTopPanelData('marketCapPanel', 'marketCapPanelLoading');
 
-            splitValue = Number(parseFloat(json.lastUSDPrice).toFixed(8) * parseInt(parseFloat(json.supply).toFixed(0))).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true});
-            splitParts = splitValue.split('.');
-            $("#usdMarketCap").html(splitParts[0] + '.<span class="decimal">' + splitParts[1] + '</span>');
+            $("#usdMarketCap").text(NitoAmount.marketValue(json.lastUSDPrice, json.supply) || '#{settings.localization.nito_unavailable}');
             showTopPanelData('usdMarketCapPanel', 'usdMarketCapPanelLoading');
 
             if (json.supply == null) {
               $('#marketCap, #usdMarketCap').text('#{settings.localization.nito_unavailable}');
             }
-            $('#marketCap, #usdMarketCap').attr('title', '#{settings.localization.nito_total} · approximate market valuation');
+            $('#marketCap, #usdMarketCap').attr('title', '#{settings.localization.nito_market_valuation}');
 
             splitParts = diffString.split('.');
             $("#difficulty").html(splitParts[0] + '.<span class="decimal">' + splitParts[1] + '</span>');

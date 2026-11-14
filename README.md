@@ -114,6 +114,31 @@ The `sync-blocks-loop` script is a simple continuous indexer loop. It is useful
 for PM2/systemd deployments where a one-shot `sync-blocks` command would exit
 after one pass.
 
+### Reconstruct an isolated historical copy
+
+All reindex commands use the transactional V4 engine. They never rewrite the
+configured source database. Restore a consistent historical backup on a local
+isolated replica set, use an archival local Core node, and create an isolated
+settings file. Then run:
+
+~~~bash
+export NITO_SETTINGS_PATH=/absolute/path/to/isolated-settings.json
+npm run reindex -- --isolated --source-db historical_copy --target-db rebuilt_copy
+# Resume an interrupted reconstruction of the same unchanged source:
+npm run reindex -- --isolated --source-db historical_copy --target-db rebuilt_copy --resume
+# Verify the retained database before switching the app/config/database back together:
+npm run rollback-index -- --isolated --source-db historical_copy --target-db rebuilt_copy
+~~~
+
+`reindex-rich`, `reindex-txcount`, `reindex-last`, and
+`rebuild-transparent-address-index` accept the same arguments and perform the
+same complete reconstruction. Partial legacy rewrites cannot establish reliable
+history, so they are no longer separate operations. `check-blocks` runs the
+normal resumable sync/reorg reconciliation; it does not repair arbitrary database
+corruption. See [migration, preservation and rollback](docs/nito-v4-orchard.md#isolated-migration-and-rollback)
+for acceptance checks and the required historical export. Do not use these
+commands against production or switch databases while a writer is running.
+
 ## Nginx Reverse Proxy
 
 An example Nginx vhost with basic request rate limiting is available at:

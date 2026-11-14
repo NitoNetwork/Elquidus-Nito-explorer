@@ -65,10 +65,14 @@ block content
           var txhash = data[2]; //variables for better readability
           var outputs = data[3]; //variables for better readability
           var amount = data[4]; //variables for better readability
-          var amountParts = Number(amount).toLocaleString('en',{'minimumFractionDigits':2,'maximumFractionDigits':8,'useGrouping':true}).split('.');
-          var amountStr = amountParts[0] + '.<span class="decimal">' + amountParts[1] + '</span>';
+          var formattedAmount = NitoAmount.format(amount);
+          var amountParts = formattedAmount == null ? [] : formattedAmount.split('.');
+          var amountStr = amountParts.length ? amountParts[0] + '.<span class="decimal">' + amountParts[1] + '</span>' : '#{settings.localization.nito_unavailable}';
           var timestamp = data[5]; //variables for better readability
-          var total = "<label class='badge bg-" + (amount > '#{settings.movement_page.movement_table.high_warning_flag}' ? 'danger' : (amount > '#{settings.movement_page.movement_table.low_warning_flag}' ? 'warning' : 'success')) + "' style='margin-bottom:0;'>" + amountStr + "</label>";
+          var severity = formattedAmount == null ? 'secondary' : NitoAmount.compare(amount, '#{settings.movement_page.movement_table.high_warning_flag}') === 1 ? 'danger' : NitoAmount.compare(amount, '#{settings.movement_page.movement_table.low_warning_flag}') === 1 ? 'warning' : 'success';
+          var total = "<label class='badge bg-" + severity + "' style='margin-bottom:0;'>" + amountStr + "</label>";
+          if (data.indexOf('privacy:orchard') >= 0) total += '<br><span class="badge bg-secondary">Orchard</span>';
+          if (data.indexOf('privacy:unknown') >= 0) total += '<br>#{settings.localization.nito_incomplete}';
           $("td:eq(0)", row).html('<a href="/tx/' + txhash + '"><span class="fa-regular fa-eye" data-bs-toggle="tooltip" data-bs-placement="top" title="#{settings.localization.view_tx}"></span></a>').addClass('text-center d-table-cell d-md-none');
           $("td:eq(1)", row).html('<a href="/tx/' + txhash + '">' + txhash + '</a>').addClass('breakWord d-none d-md-table-cell');
           $("td:eq(2)", row).html(total).addClass('text-center');

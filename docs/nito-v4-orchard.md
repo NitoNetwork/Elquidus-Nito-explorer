@@ -80,6 +80,15 @@ and unclaimed rewards mean this total can differ from theoretical cumulative
 issuance. It is neither maximum supply nor an estimate of circulating coins.
 Shielding moves value between pools and does not destroy coins.
 
+The supply panel shows one total before activation. It expands to **Total**,
+**Transparent** and **Orchard** only when a valid same-tip Core snapshot reports
+`activated: true`. The `activated` and `privateTxActivationHeight` fields must
+agree with `getblockchaininfo`; the explorer does not hardcode an activation
+height or infer activation from a positive pool balance. An activated but empty
+Orchard pool is still displayed. A reorg below activation restores the single
+total view. The Top 100 and its distribution remain transparent-only in either
+mode, with the transparent UTXO total as the percentage denominator.
+
 Only the indexer collects pool totals. It checks that `coinstatsindex` is synced
 at the target height, coalesces concurrent collection and caches by network and
 block hash. Web requests read the persisted snapshot and use a cheap chain-tip
@@ -183,13 +192,38 @@ complete sent/received history or correct old private pseudo-balances.
    It reports legacy documents, private pseudo-addresses, duplicate history keys
    and balance storage types. It never deletes, repairs or rounds data. Structural
    checks alone do not certify balances against Core.
-3. Create a **different empty database**, for example `explorer_v4_validation`,
-   on a replica set. Use a separate explorer checkout and local `settings.json`
-   with that database, a local web port, and the intended archival Core network.
-4. Run `npm run sync-blocks` until the checkpoint reaches Core. The indexer
+3. Choose a **different empty database**, for example `explorer_v4_validation`,
+   on the same isolated replica set. Use a separate explorer checkout and an
+   explicit isolated settings file, a local web port, and the intended archival
+   Core network. Both MongoDB and Core endpoints must use loopback addresses.
+4. Run the supported reconstruction command:
+
+   ```bash
+   export NITO_SETTINGS_PATH=/absolute/path/to/isolated-settings.json
+   npm run reindex -- --isolated --source-db explorer_validation_copy --target-db explorer_v4_validation
+   ```
+
+   On PowerShell, set the same environment variable with
+   `$env:NITO_SETTINGS_PATH = 'C:/isolated/settings.json'` before the npm command.
+   The indexer
    rebuilds full transparent history from blocks; it does not import old money
-   totals. Address claims or labels may be reviewed and copied separately only
-   after excluding private receivers; never copy legacy balance collections.
+   totals. The source is read-only and must remain frozen. A nonempty target is
+   refused unless `--resume` is supplied and its manifest matches the source.
+   This supports recovery after interrupted block or ancillary-data writes.
+   All reindex aliases (`reindex-rich`, `reindex-txcount`, `reindex-last`, and
+   `rebuild-transparent-address-index`) perform this complete archival replay;
+   none performs an in-place partial rewrite. Ordinary `sync-blocks` and
+   `check-blocks` resume indexing and reconcile reorgs without reconstructing.
+
+   Transparent claims are validated against Core and copied to `claimaddresses`.
+   Legacy `addresses.name` labels are imported only if no claim takes precedence.
+   Private/invalid receivers are excluded from active claims. Other ancillary
+   collections, including market and network history, are preserved as
+   `legacy_archive_<collection>` for operator review. They are not exposed as
+   current data: historical supply cannot be repaired by relabeling old values.
+   Retain the source backup for all original fields and rejected labels. The
+   reconstruction manifest records collection document counts, BSON-value hashes,
+   index definitions, preservation destinations and the new chain checkpoint.
 5. Compare sampled address balances against Core `scantxoutset` **as a one-off
    operator validation**, not a web request. Check all three totals against a
    same-tip `getorchardpools`, verify the network/genesis identity, test an orphan,
@@ -201,10 +235,36 @@ complete sent/received history or correct old private pseudo-balances.
    stop the old writer, complete the new database's catch-up, then switch the app
    and writer together. Never run an old writer against schema version 2.
 
-Rollback means stopping the new writer and returning the app, configuration and
+Before rollback, verify the retained source against the reconstruction manifest:
+
+```bash
+npm run rollback-index -- --isolated --source-db explorer_validation_copy --target-db explorer_v4_validation
+```
+
+This command checks the source without changing either database. It does not
+switch running services. Rollback means stopping the new writer and returning the app, configuration and
 old database together to the retained revision. Do not downgrade the new schema
 in place. The old explorer has the accounting limitations described above; keep
 private/rich-list features disabled there until their correctness is established.
+
+### Historical export required for production-history acceptance
+
+Generated regtest history proves the mechanism but cannot certify an existing
+installation's historical data. Supply a consistent MongoDB backup (BSON dump
+with metadata/index definitions or a `mongodump --archive --gzip` archive) of the
+entire explorer database, including `txes`, `addresses`, `addresstxes`,
+`claimaddresses`, `richlists`, `coinstats`, network history, markets and any custom
+collections. Include the MongoDB version, backup time, deployed explorer SHA,
+network/genesis and indexed height/hash, plus sanitized relevant settings such as
+coin identity and excluded rich-list addresses. Do not include passwords, RPC
+cookies, wallet files, private keys or seeds. Archive files and operator reports
+must remain outside Git.
+
+An isolated archival Core data copy for the same network through that checkpoint,
+or an independently synchronized archival local node, is also necessary to replay
+and compare transactions. A pruned data directory or UTXO snapshot alone cannot
+reconstruct historical address activity. Do not obtain the export by connecting
+a test process to production.
 
 ## Validation
 
@@ -226,7 +286,8 @@ aborted database writes, legacy-index refusal, HTTP routes and RPC outage.
 
 Unit tests cover missing metadata, previous-output failure, serialization errors,
 signed balances, exact maximum-range arithmetic and pool cache/index failures.
-Run the inherited `npm test` separately: its live Poloniex integration depends on
-an external service and is not a deterministic Orchard qualification gate.
+Run `npm test` as well: explorer and Poloniex tests use deterministic local
+fixtures, including provider errors, timeouts and recovery. See
+[market data](market-data.md) and [API consumers](api-amount-consumers.md).
 Desktop/mobile browser checks remain part of acceptance. Local regtest evidence
 does not certify production history, mainnet operation or another platform.

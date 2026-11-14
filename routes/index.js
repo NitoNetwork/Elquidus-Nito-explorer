@@ -296,6 +296,7 @@ router.get('/markets/:market/:coin_symbol/:pair_symbol', function(req, res) {
         var market_name = (isAlt ? (market_data.market_name_alt == null ? '' : market_data.market_name_alt) : (market_data.market_name == null ? '' : market_data.market_name));
         var market_logo = (isAlt ? (market_data.market_logo_alt == null ? '' : market_data.market_logo_alt) : (market_data.market_logo == null ? '' : market_data.market_logo));
         var marketdata = {
+          money: require('../lib/market-decimal'),
           market_name: market_name,
           market_logo: market_logo,
           coin: coin_symbol,
@@ -312,7 +313,7 @@ router.get('/markets/:market/:coin_symbol/:pair_symbol', function(req, res) {
               active: 'markets',
               marketdata: marketdata,
               market: market_id,
-              last_updated: last_updated_date,
+              last_updated: data?.last_success_at ? Math.floor(data.last_success_at / 1000) : null,
               showSync: db.check_show_sync_message(),
               customHash: get_custom_hash(),
               styleHash: get_style_hash(),

@@ -178,21 +178,21 @@ block content
                 p
                   div.fw-bold getmoneysupply
                   div
-                    em Returns current money supply
+                    em Returns confirmed accounted chain value, including immature rewards, as an exact decimal string
                   a(href='/ext/getmoneysupply') #{address}/ext/getmoneysupply
             if settings.api_page.public_apis.ext.getdistribution.enabled == true
               li
                 p
                   div.fw-bold getdistribution
                   div
-                    em Returns wealth distribution stats
+                    em Returns transparent UTXO distribution, exact string amounts and percentages, with the snapshot block hash
                   a(href='/ext/getdistribution') #{address}/ext/getdistribution
             if settings.api_page.public_apis.ext.getaddress.enabled == true
               li
                 p
                   div.fw-bold getaddress (/ext/getaddress/hash)
                   div
-                    em Returns information for given address
+                    em Returns exact string amounts for a transparent address; private receivers return HTTP 422
                   a(href='/ext/getaddress/' + settings.api_page.sample_data.address) #{address}/ext/getaddress/#{settings.api_page.sample_data.address}
             if settings.api_page.public_apis.ext.getaddresstxs.enabled == true
               li
@@ -244,14 +244,14 @@ block content
                 p
                   div.fw-bold getbasicstats
                   div
-                    em="Returns basic statistics about the coin including: block count, circulating supply, USD price, " + market_currency + " price" + (settings.api_page.public_apis.rpc.getmasternodecount.enabled == true && settings.api_cmds['getmasternodecount'] != null && settings.api_cmds['getmasternodecount'] != '' ? ', ' + '# of masternodes' : '')
+                    em="Returns block count, accounted chain value as an exact string (or null when unavailable), pool scope, USD price and " + market_currency + " price"
                   a(href='/ext/getbasicstats') #{address}/ext/getbasicstats
             if settings.api_page.public_apis.ext.getsummary.enabled == true
               li
                 p
                   div.fw-bold getsummary
                   div
-                    em="Returns a summary of coin data including: difficulty, hybrid difficulty, circulating supply, hash rate, " + market_currency + " price, USD price, network connection count, block count" + (settings.api_page.public_apis.rpc.getmasternodecount.enabled == true && settings.api_cmds['getmasternodecount'] != null && settings.api_cmds['getmasternodecount'] != '' ? ', ' + 'count of online masternodes' + ', ' + 'count of offline masternodes' : '')
+                    em="Returns difficulty, accounted chain value as an exact string (or null when unavailable), pool scope, hash rate, " + market_currency + " price, USD price, network connection count and block count"
                   a(href='/ext/getsummary') #{address}/ext/getsummary
             if settings.api_page.public_apis.ext.getmasternodelist.enabled == true && settings.api_cmds['getmasternodelist'] != null && settings.api_cmds['getmasternodelist'] != ''
               li
@@ -265,14 +265,14 @@ block content
                 p
                   div.fw-bold getmasternoderewards (/ext/getmasternoderewards/hash/since)
                   div
-                    em Returns a list of masternode reward transactions for address [hash] that arrived after block height [since]
+                    em=settings.localization.nito_unsupported_rewards
                   a(href='/ext/getmasternoderewards/' + settings.api_page.sample_data.address + '/' + settings.api_page.sample_data.blockindex) #{address}/ext/getmasternoderewards/#{settings.api_page.sample_data.address}/#{settings.api_page.sample_data.blockindex}
             if settings.api_page.public_apis.ext.getmasternoderewardstotal.enabled == true
               li
                 p
                   div.fw-bold getmasternoderewardstotal (/ext/getmasternoderewardstotal/hash/since)
                   div
-                    em Returns the total number of coins earned in masternode rewards for address [hash] that arrived after block height [since]
+                    em=settings.localization.nito_unsupported_rewards
                   a(href='/ext/getmasternoderewardstotal/' + settings.api_page.sample_data.address + '/' + settings.api_page.sample_data.blockindex) #{address}/ext/getmasternoderewardstotal/#{settings.api_page.sample_data.address}/#{settings.api_page.sample_data.blockindex}
             each extApi in pluginApisExt
               li

@@ -2,7 +2,9 @@ extends layout
 
 block content
   .col-12
-    h3=settings.localization.nito_address_scope
+    h3=settings.localization.rl_title.replace('{1}', settings.coin.name)
+    if settings.richlist_page.page_header.show_last_updated && stats.blockchain_last_updated
+      p.small.text-muted=settings.localization.last_updated + ': ' + new Date(stats.blockchain_last_updated * 1000).toISOString()
     p=settings.localization.nito_rich_scope
     if stats.pools
       p.small.breakWord=stats.pools.chain + ' · ' + stats.pools.blocks + ' · ' + stats.pools.bestblockhash
@@ -10,36 +12,72 @@ block content
       .alert.alert-warning=settings.localization.nito_unavailable
     .row
       .col-12.col-lg-8
-        each rows, category in {balance: balance, received: received}
-          .card.cardSpacer
-            .card-header=category == 'balance' ? settings.localization.rl_current_balance : settings.localization.rl_received_coins
-            .table-responsive
-              table.table.table-striped
-                thead
-                  tr
-                    th #
-                    th=settings.localization.tx_address
-                    th.text-end=settings.coin.symbol
-                    if category == 'balance'
-                      th.text-end %
-                tbody
-                  each address, index in rows
+        - const categories = Object.entries({balance, received}).filter(([key]) => key === 'balance' ? settings.richlist_page.show_current_balance : settings.richlist_page.show_received_coins)
+        ul.nav.nav-tabs(role='tablist')
+          each pair, index in categories
+            li.nav-item(role='presentation')
+              button.nav-link(id=pair[0] + '-tab', class=index === 0 ? 'active' : '', type='button', role='tab', data-bs-toggle='tab', data-bs-target='#' + pair[0], aria-controls=pair[0], aria-selected=index === 0 ? 'true' : 'false')=pair[0] === 'balance' ? settings.localization.rl_current_balance : settings.localization.rl_received_coins
+        .tab-content
+          each pair, tabIndex in categories
+            - const [category, rows] = pair
+            .tab-pane(id=category, class=tabIndex === 0 ? 'active' : '', role='tabpanel', aria-labelledby=category + '-tab')
+              .table-responsive
+                table.table.table-bordered.table-striped
+                  thead
                     tr
-                      td=index + 1
-                      td.breakWord: a(href='/address/' + address.a_id)=address.a_id
-                      td.text-end=nitoMoney.coins(address[category])
+                      th(scope='col') #
+                      th(scope='col')=settings.localization.tx_address
+                      th.text-end(scope='col')=settings.coin.symbol
                       if category == 'balance'
-                        td.text-end=stats.pools ? nitoMoney.percent(address.balance, stats.pools.transparent.chainValueNitoshi) || '—' : '—'
+                        th.text-end(scope='col') %
+                  tbody
+                    each address, index in rows
+                      tr
+                        td=index + 1
+                        td.breakWord
+                          a(href='/address/' + address.a_id)=settings.claim_address_page.enabled && address.claim_name ? address.claim_name : address.a_id
+                          include ./includes/rl_labels.pug
+                        td.text-end.text-nowrap=nitoMoney.coins(address[category]).replace(/\B(?=(\d{3})+\.)/g, ',')
+                        if category == 'balance'
+                          td.text-end=stats.pools ? nitoMoney.percent(address.balance, stats.pools.transparent.chainValueNitoshi) || '—' : '—'
       .col-12.col-lg-4
         .card.cardSpacer
-          .card-header=settings.localization.nito_transparent
+          .card-header=settings.localization.rl_wealth + ' · ' + settings.localization.nito_supply_transparent
           .card-body
             p.small=settings.localization.nito_chart_scope
-            each group, index in [dista, distb, distc, distd, diste]
-              p.mb-1=index < 4 ? (index * 25 + 1) + '–' + ((index + 1) * 25) : settings.localization.nito_other
-              if group.percent != null
-                .progress.mb-1
-                  .progress-bar(role='progressbar', style='width:' + group.percent + '%', aria-valuenow=group.percent, aria-valuemin='0', aria-valuemax='100')=group.percent + '%'
-                p.breakWord=group.total + ' ' + settings.coin.symbol
-              else
-                p=settings.localization.nito_unavailable
+            if settings.richlist_page.wealth_distribution.show_distribution_table
+              .table-responsive
+                table.table.table-bordered.table-striped
+                  thead
+                    tr
+                      th(scope='col')=settings.localization.rl_wealth
+                      th.text-end(scope='col')=settings.coin.symbol
+                      th.text-end(scope='col') %
+                  tbody
+                    each group, index in [dista, distb, distc, distd, diste]
+                      if index === 4 && stats.pools
+                        - const topTotal = balance.slice(0, 100).reduce((sum, address) => sum + BigInt(address.balance), BigInt(0))
+                        tr
+                          th(scope='row')=settings.localization.rl_current_balance
+                          td.text-end.text-nowrap=nitoMoney.coins(topTotal).replace(/\B(?=(\d{3})+\.)/g, ',')
+                          td.text-end=nitoMoney.percent(topTotal, stats.pools.transparent.chainValueNitoshi) || '—'
+                      tr
+                        th(scope='row')=index < 4 ? (index * 25 + 1) + '–' + ((index + 1) * 25) : settings.localization.nito_other
+                        td.text-end.text-nowrap=group.total == null ? settings.localization.nito_unavailable : group.total.replace(/\B(?=(\d{3})+\.)/g, ',')
+                        td.text-end=group.percent == null ? '—' : group.percent
+                    tr
+                      th(scope='row')=settings.localization.nito_supply_total
+                      td.text-end.text-nowrap=stats.pools ? stats.pools.transparent.chainValue.replace(/\B(?=(\d{3})+\.)/g, ',') : settings.localization.nito_unavailable
+                      td.text-end=stats.pools && BigInt(stats.pools.transparent.chainValueNitoshi) > BigInt(0) ? '100.00' : '—'
+            if settings.richlist_page.wealth_distribution.show_distribution_chart && stats.pools
+              canvas#pieChart(role='img', aria-label=settings.localization.nito_rich_scope)=settings.localization.nito_chart_scope
+              script.
+                $(function () {
+                  if (typeof Chart === 'undefined') return;
+                  const groups = !{JSON.stringify([dista, distb, distc, distd, diste])};
+                  const labels = !{JSON.stringify([settings.localization.rl_top25, settings.localization.rl_top50, settings.localization.rl_top75, settings.localization.rl_top100, settings.localization.nito_other])};
+                  new Chart('pieChart', {type: 'pie', data: {labels, datasets: [{backgroundColor: !{JSON.stringify(settings.richlist_page.wealth_distribution.colors)}, data: groups.map(g => Number(g.percent))}]}, options: {
+                    animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+                    plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => labels[c.dataIndex] + ': ' + NitoAmount.format(groups[c.dataIndex].total) + ' (' + groups[c.dataIndex].percent + '%)'}}}
+                  }});
+                });

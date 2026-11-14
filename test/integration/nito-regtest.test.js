@@ -66,6 +66,12 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal((await collect()).activated, false);
   await mine(4);
   assert.equal((await collect()).activated, true);
+  const activationHash = await rpc('getbestblockhash');
+  await rpc('invalidateblock', [activationHash]);
+  assert.equal((await rpc('getblockchaininfo')).activated, false);
+  assert.equal((await until(async () => { const p = await collect(); return p.status === 'available' && p; })).activated, false);
+  await rpc('reconsiderblock', [activationHash]);
+  assert.equal((await until(async () => { const p = await collect(); return p.status === 'available' && p; })).activated, true);
   const transparent = await rpc('getnewaddress');
   const privateReceiver = await rpc('getnewaddress', ['', 'bech32x']);
   const cases = {};
@@ -109,6 +115,83 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await index.sync(collect);
   assert.equal(await db.collection('txes').countDocuments(), firstCount);
   assert.equal(await db.collection('addresses').countDocuments({a_id: /^(private_orchard|nrt1x)/i}), 0);
+  // Reconstruct a frozen historical regtest copy, retaining labels and ancillary evidence.
+  // This is real generated chain history, not a supplied production database export.
+  const {rebuild, inventory: migrationInventory, verifyRollback} = require('../../lib/nito-rebuild');
+  const legacyName = dbName + '_legacy', rebuiltName = dbName + '_rebuilt';
+  const legacyCopy = conn.db(legacyName);
+  for (const name of ['txes', 'addresses', 'addresstxes']) {
+    const rows = await db.collection(name).find().toArray();
+    if (rows.length) await legacyCopy.collection(name).insertMany(rows);
+  }
+  await legacyCopy.collection('addresses').insertOne({a_id: 'private_orchard', balance: 500000000, received: 500000000, sent: 0});
+  await legacyCopy.collection('claimaddresses').insertMany([{a_id: transparent, claim_name: 'Historical transparent label'}, {a_id: privateReceiver, claim_name: 'Must not be published'}]);
+  await legacyCopy.collection('markets').insertOne({market: 'fixture', summary: {last: '0.001'}});
+  await legacyCopy.collection('networkhistories').insertOne({blockindex: 10, supply: 999});
+  await legacyCopy.createCollection('custom_empty');
+  const retainedInventory = await migrationInventory(legacyCopy);
+  const migration = await rebuild({client: conn, source: legacyName, target: rebuiltName, rpc, collect});
+  assert.equal(migration.complete, true);
+  assert.deepEqual(await migrationInventory(legacyCopy), retainedInventory);
+  const rebuiltDb = conn.db(rebuiltName);
+  for (const name of ['addresses', 'addresstxes', 'txes']) {
+    const sorted = async database => database.collection(name).find({}, {projection: {_id: 0}}).sort(name === 'addresses' ? {a_id: 1} : name === 'addresstxes' ? {a_id: 1, txid: 1} : {txid: 1}).toArray();
+    assert.deepEqual(await sorted(rebuiltDb), await sorted(db), 'rebuilt ' + name);
+  }
+  const ranked = database => database.collection('addresses').find({}, {projection: {_id: 0}}).sort({balance: -1, a_id: 1}).limit(100).toArray();
+  assert.deepEqual(await ranked(rebuiltDb), await ranked(db), 'rebuilt transparent top 100');
+  assert.equal((await rebuiltDb.collection('claimaddresses').findOne({a_id: transparent})).claim_name, 'Historical transparent label');
+  assert.equal(await rebuiltDb.collection('claimaddresses').countDocuments(), 1);
+  assert.equal(await rebuiltDb.collection('legacy_archive_markets').countDocuments(), 1);
+  assert.equal(await rebuiltDb.collection('legacy_archive_networkhistories').countDocuments(), 1);
+  assert.equal((await rebuiltDb.listCollections({name: 'legacy_archive_custom_empty'}).toArray()).length, 1);
+  assert.equal(await rebuiltDb.collection('networkhistories').countDocuments(), 0);
+  await assert.rejects(rebuild({client: conn, source: legacyName, target: rebuiltName, rpc, collect}), /Target must be empty/);
+  await rebuild({client: conn, source: legacyName, target: rebuiltName, rpc, collect, resume: true});
+  const rollback = await verifyRollback(conn, legacyName, rebuiltName);
+  const operationalSettings = path.join(temp, 'rebuild-settings.json');
+  const mongoUrl = new URL(mongo.getUri());
+  const operationConfig = JSON.parse(require('jsonminify')(fs.readFileSync(path.resolve(__dirname, '../../settings.json.template'), 'utf8')));
+  Object.assign(operationConfig, {wallet: cfg, coin: {...operationConfig.coin, name: 'Nito'}, dbsettings: {
+    user: '', password: '', database: legacyName, address: '127.0.0.1', port: Number(mongoUrl.port), auth_source: ''}});
+  fs.writeFileSync(operationalSettings, JSON.stringify(operationConfig));
+  async function runOperation(args, script = 'reindex_nito.js') {
+    const child = spawn(process.execPath, [path.resolve(__dirname, '../../scripts', script), ...args], {
+      cwd: path.resolve(__dirname, '../..'), windowsHide: true,
+      env: {...process.env, NITO_SETTINGS_PATH: operationalSettings}, stdio: ['ignore', 'pipe', 'pipe']});
+    let output = ''; child.stdout.on('data', chunk => output += chunk); child.stderr.on('data', chunk => output += chunk);
+    const code = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {child.kill(); reject(Error(script + ' exceeded 120 seconds\n' + output));}, 120000);
+      child.once('error', error => {clearTimeout(timeout); reject(error);});
+      child.once('exit', value => {clearTimeout(timeout); resolve(value);});
+    });
+    assert.equal(code, 0, output); return output;
+  }
+  const commandArgs = ['--isolated', '--source-db', legacyName, '--target-db', rebuiltName];
+  assert.match(await runOperation([...commandArgs, '--resume']), /"complete": true/);
+  assert.match(await runOperation([...commandArgs, '--rollback']), /"verified": true/);
+  // Exercise the documented startup and sync entry points against the rebuilt copy.
+  // The retained source remains frozen; no supervisor or public endpoint is started.
+  operationConfig.dbsettings.database = rebuiltName;
+  operationConfig.markets_page.enabled = false;
+  fs.writeFileSync(operationalSettings, JSON.stringify(operationConfig));
+  const startupState = await rebuiltDb.collection('nito_state').findOne({_id: 'Nito'});
+  const startupStats = await rebuiltDb.collection('coinstats').findOne({coin: 'Nito'});
+  const startupCounts = {};
+  for (const name of ['txes', 'addresses', 'addresstxes', 'claimaddresses']) startupCounts[name] = await rebuiltDb.collection(name).countDocuments();
+  const startupBalances = await ranked(rebuiltDb);
+  assert.match(await runOperation([], 'prestart.js'), /Database initialization complete/);
+  for (let pass = 0; pass < 2; pass++) assert.match(await runOperation([], 'sync_nito.js'), /Indexed regtest block/);
+  assert.deepEqual(await rebuiltDb.collection('nito_state').findOne({_id: 'Nito'}), startupState);
+  const afterStartupStats = await rebuiltDb.collection('coinstats').findOne({coin: 'Nito'});
+  for (const field of ['txes', 'last', 'count', 'schema_version', 'supply', 'pools']) assert.deepEqual(afterStartupStats[field], startupStats[field], 'startup preserves ' + field);
+  for (const [name, count] of Object.entries(startupCounts)) assert.equal(await rebuiltDb.collection(name).countDocuments(), count, 'startup preserves ' + name);
+  assert.deepEqual(await ranked(rebuiltDb), startupBalances);
+  assert.deepEqual(await migrationInventory(legacyCopy), retainedInventory);
+  // Switch the reader back to the retained database, without altering either schema.
+  const rolledBackDb = conn.db(rollback.database);
+  assert.deepEqual(await migrationInventory(rolledBackDb), retainedInventory);
+  assert.equal((await rolledBackDb.collection('addresses').findOne({a_id: 'private_orchard'})).balance, 500000000);
   const before = (await db.collection('addresses').findOne({a_id: transparent})).balance.toString();
   await stop(); await start();
   await index.sync(collect);
@@ -148,7 +231,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal(dbPools.pools.bestblockhash, replacement);
   assert.equal(BigInt(pools.transparent.chainValueNitoshi) + BigInt(pools.orchard.chainValueNitoshi), BigInt(pools.total.chainValueNitoshi));
 
-  const legacy = conn.db(dbName + '_legacy');
+  const legacy = conn.db(dbName + '_legacy_refusal');
   await legacy.collection('addresses').insertOne({a_id: 'private_orchard', balance: 4});
   await assert.rejects(new Index(conn, legacy, rpc).init(), /Legacy index/);
   assert.equal((await legacy.collection('addresses').findOne({})).balance, 4);
@@ -169,7 +252,18 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const settings = require('../../lib/settings');
   settings.wallet = cfg;
   settings.explorer_version = require('../../package.json').version;
-  settings.markets_page.enabled = false;
+  settings.markets_page.enabled = true;
+  settings.markets_page.exchanges.poloniex.enabled = true;
+  settings.markets_page.exchanges.poloniex.trading_pairs = ['NITO/BTC'];
+  await db.collection('markets').insertOne({market: 'poloniex', coin_symbol: 'NITO', pair_symbol: 'BTC', stale: true,
+    last_success_at: Date.now() - 3600000, last_error: 'HTTP_503', chartdata: '[]',
+    summary: {last: '0.00000001', high: '0.00000002', low: '0.00000001', volume: '1284565889.99999999'},
+    buys: [{price: '0.00000001', quantity: '1284565889.99999999', total: '12.8456588999999999'}],
+    sells: [], history: []});
+  await require('mongoose').connect(mongo.getUri(rebuiltName));
+  const preservedRichlist = await require('../../lib/nito-store').richlist();
+  assert.equal(preservedRichlist.balance.find(row => row.a_id === transparent).claim_name, 'Historical transparent label');
+  await require('mongoose').disconnect();
   await require('mongoose').connect(mongo.getUri(dbName));
   const app = require('../../app');
   app.locals.settings = settings;
@@ -187,7 +281,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   for (const prefix of ['/address/', '/ext/getaddress/', '/ext/getbalance/', '/ext/getaddresstxs/']) {
     assert.equal((await fetch(base + prefix + privateReceiver + (prefix.includes('getaddresstxs') ? '/0/10' : ''))).status, 422);
   }
-  for (const url of ['/', '/richlist', '/address/' + transparent, '/block/' + cases.private.hash]) {
+  for (const url of ['/', '/richlist', '/movement', '/markets/poloniex/NITO/BTC', '/address/' + transparent, '/block/' + cases.private.hash]) {
     const r = await fetch(base + url); const html = await r.text();
     assert.equal(r.status, 200, url + ': ' + html.slice(0, 300)); assert.ok(!/>\s*NaN\s*</.test(html));
   }
@@ -227,4 +321,19 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     const stopFile = path.join(temp, 'finish-ui');
     await until(() => fs.existsSync(stopFile), 600000);
   }
+  await rpc('invalidateblock', [activationHash]);
+  await until(async () => (await collect()).status === 'available');
+  await index.sync(collect);
+  const preactivation = await (await fetch(base + '/ext/getorchardpools')).json();
+  assert.equal(preactivation.activated, false);
+  assert.equal(preactivation.orchard.chainValueNitoshi, '0');
+  assert.equal((await fetch(base + '/richlist')).status, 200);
+  if (process.env.NITO_UI_HOLD) {
+    console.log('UI_PREACTIVATION', JSON.stringify({base, evidence: temp}));
+    await until(() => fs.existsSync(path.join(temp, 'finish-ui-preactivation')), 600000);
+  }
+  await rpc('reconsiderblock', [activationHash]);
+  await until(async () => (await collect()).status === 'available');
+  await index.sync(collect);
+  assert.equal((await (await fetch(base + '/ext/getorchardpools')).json()).activated, true);
 });

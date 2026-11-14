@@ -10,6 +10,10 @@ var MarketsSchema = new Schema({
   buys: { type: Array, default: [] },
   sells: { type: Array, default: [] },
   history: { type: Array, default: [] },
+  last_success_at: { type: Number, default: null },
+  last_attempt_at: { type: Number, default: null },
+  last_error: { type: String, default: null },
+  stale: { type: Boolean, default: true },
 });
 
 module.exports = mongoose.model('Markets', MarketsSchema);
