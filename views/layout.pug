@@ -428,7 +428,7 @@ html(lang='en')
             Accept: 'application/json, text/javascript, */*; q=0.01'
           };
 
-          $.ajax({url: '/ext/getsummary', headers: summary_headers, cache: false, success: function(json) {
+          $.ajax({url: '/ext/getsummary', headers: summary_headers, cache: false, timeout: 10000, success: function(json) {
             if (json.masternodeCountOnline == null)
               json.masternodeCountOnline = '-';
             if (json.masternodeCountOffline == null)
@@ -510,6 +510,14 @@ html(lang='en')
                   .text('#{settings.localization.mkt_data_stale}').insertAfter(id);
               });
             }
+          }, error: function () {
+            $('#supply-pool-breakdown, .market-stale-notice').remove();
+            $('#supply, #lastPrice, #lastUSDPrice, #marketCap, #usdMarketCap').text('#{settings.localization.nito_unavailable}');
+            showTopPanelData('supplypanel', 'supplyPanelLoading');
+            showTopPanelData('pricepanel', 'pricePanelLoading');
+            showTopPanelData('usdpricepanel', 'usdPricePanelLoading');
+            showTopPanelData('marketCapPanel', 'marketCapPanelLoading');
+            showTopPanelData('usdMarketCapPanel', 'usdMarketCapPanelLoading');
           }});
         }
         $(document).ready(function() {

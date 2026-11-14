@@ -11,12 +11,22 @@ section#nito-pools.card.card-default.cardSpacer(aria-label=settings.localization
     p.small.mb-0=settings.localization.nito_pool_scope
 script.
   $(function () {
-    $.getJSON('/ext/getorchardpools').done(function (p) {
-      if (p.status !== 'available' || p.activated !== true) return;
-      ['transparent', 'orchard', 'total'].forEach(function (key) {
-        $('[data-pool="' + key + '"]').text(NitoAmount.format(p[key].chainValue) + ' #{settings.coin.symbol}');
-      });
-      $('#nito-pool-tip').text(p.chain + ' · #{settings.localization.height} ' + p.blocks + ' · ' + p.bestblockhash).addClass('breakWord');
-      $('#nito-pools').prop('hidden', false);
-    });
+    function clearPools() {
+      $('#nito-pools').prop('hidden', true);
+      $('[data-pool]').text('#{settings.localization.nito_unavailable}');
+      $('#nito-pool-tip').text('');
+    }
+    function refreshPools() {
+      $.ajax({url: '/ext/getorchardpools', dataType: 'json', timeout: 10000}).done(function (p) {
+        if (p.status !== 'available' || p.activated !== true) { clearPools(); return; }
+        ['transparent', 'orchard', 'total'].forEach(function (key) {
+          $('[data-pool="' + key + '"]').text(NitoAmount.format(p[key].chainValue) + ' #{settings.coin.symbol}');
+        });
+        $('#nito-pool-tip').text(p.chain + ' · #{settings.localization.height} ' + p.blocks + ' · ' + p.bestblockhash).addClass('breakWord');
+        $('#nito-pools').prop('hidden', false);
+      }).fail(clearPools);
+    }
+    refreshPools();
+    const poolTimer = setInterval(refreshPools, 60000);
+    window.addEventListener('pagehide', function () { clearInterval(poolTimer); }, {once: true});
   });
