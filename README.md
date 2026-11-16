@@ -96,9 +96,15 @@ cp settings.json.template settings.json
 nano settings.json
 ~~~
 
+Before the first start, review `network_page.peer_sync.geolocation.enabled`.
+The default country enrichment sends only publicly routable peer IP addresses to
+the disclosed HTTPS provider; set it to `false` if that is not acceptable for the
+installation. Peer collection continues without country enrichment.
+
 Start the explorer with the local, lockfile-pinned PM2. The start command compiles
-styles, checks database initialization and starts or reloads the explorer process.
-No global PM2 installation or package download occurs during startup.
+styles, checks database initialization and starts or reloads both the web process
+and one supervised peer collector. No global PM2 installation or package download
+occurs during startup.
 
 ~~~bash
 npm run start-pm2
@@ -108,8 +114,9 @@ node scripts/pm2.js save
 Use `npm run stop-pm2` and `npm run reload-pm2` for routine process management.
 For automatic recovery after an operating-system reboot, configure the PM2 startup
 service for the same account and local PM2 installation; saving the process list
-alone does not install an operating-system service. The single foreground process
-alternative for an existing systemd or container supervisor is `npm run start-instance`.
+alone does not install an operating-system service. For an existing systemd or
+container supervisor, run `npm run start-instance` for the web process and
+`npm run sync-peers-loop` as a separate single-instance worker.
 
 Forever is no longer distributed or supported. Its former start, stop and reload
 commands exit with migration instructions without changing a running service.
@@ -131,17 +138,52 @@ The old `update-explorer` command now exits with instructions. It no longer runs
 Subsequent Orchard activation is detected from the node; it does not require another
 software installation or an explorer restart.
 
-Run a first sync manually, then keep block sync running through your supervisor.
+Run the initial block and market collections manually, then keep block sync running
+through your supervisor.
 
 ~~~bash
 npm run sync-blocks
-node scripts/sync.js market update
+npm run sync-markets
 npm run sync-blocks-loop
 ~~~
 
 The `sync-blocks-loop` script is a simple continuous indexer loop. It is useful
 for PM2/systemd deployments where a one-shot `sync-blocks` command would exit
-after one pass.
+after one pass. `npm run start-pm2` already supervises `sync-peers-loop`; do not
+start a second copy. The peer worker runs immediately, then every five minutes,
+uses the existing lock to prevent overlap and retries failures without presenting
+them as an empty network. `npm run sync-peers` remains available as a one-shot
+diagnostic command; run it only while the supervised peer worker is stopped.
+
+### Peer observations and country estimates
+
+The Network page lists peers observed by the explorer's own Core node during the
+last 24 hours. It is not a census of every NITO node. Core's `getpeerinfo` RPC must
+be available to the explorer RPC user; include it if `rpcwhitelist` is enabled.
+
+Peer storage is independent of geolocation. An unavailable country provider leaves
+the country as `Unknown` and never discards the peer. IPv4 and IPv6 public addresses
+are eligible for lookup; private, unroutable, Tor, I2P and CJDNS addresses are never
+submitted. The default provider is the keyless HTTPS
+[country.is API](https://country.is/), which states that it permits commercial use
+and does not log requests. Disable external lookups without disabling the peer page:
+
+~~~json
+"geolocation": {
+  "enabled": false
+}
+~~~
+
+For critical or high-volume installations, self-host a compatible endpoint and set
+`network_page.peer_sync.geolocation.provider_url` to its HTTPS URL containing the
+required `{ip}` placeholder. Never put API credentials in that URL or commit them.
+Country values are approximate network-location estimates, not proof of a person's
+identity or physical address.
+
+`/ext/getnetworkpeers` keeps its successful top-level JSON array contract. The
+additive `network` field identifies Core's reported transport; country fields can
+be empty. Internal lookup timestamps are not exposed. A database read failure is
+reported as HTTP 503 and must not be interpreted by consumers as an empty peer set.
 
 ### Reconstruct an isolated historical copy
 
@@ -200,10 +242,16 @@ limit_req_status 429;
 ## Verify
 
 ~~~bash
-node scripts/pm2.js status explorer
+node scripts/pm2.js status
 curl http://127.0.0.1:3001/ext/getorchardpools
 curl http://127.0.0.1:3001/ext/getlasttxs/0/0/10/internal
+curl http://127.0.0.1:3001/ext/getnetworkpeers
 ~~~
+
+PM2 should report both `explorer` and the single `explorer-peers` worker online.
+After the first successful pass, `/network` must show a current timestamp and the
+API must remain a JSON array. A missing/stale warning indicates collector or RPC
+failure; it must not be interpreted as zero connected NITO peers.
 
 For a v4 deployment, also verify one transparent-only transaction and one
 transaction containing a private Orchard bundle. The private page should show

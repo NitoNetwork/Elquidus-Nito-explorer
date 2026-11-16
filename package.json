@@ -2,7 +2,7 @@
   "name": "explorer",
   "version": "1.102.0",
   "private": true,
-  "packageManager": "npm@11.9.0",
+  "packageManager": "npm@11.19.1",
   "description": "Public block explorer for NITO Core V4 with exact transparent and Orchard pool accounting.",
   "license": "BSD-3-Clause",
   "homepage": "https://explorer.nito.network/",
@@ -15,16 +15,16 @@
   },
   "scripts": {
     "start": "node --stack-size=10000 ./bin/cluster",
-    "stop": "node ./scripts/pm2.js stop explorer",
+    "stop": "node ./scripts/pm2.js stop ecosystem.config.js",
     "start-instance": "npm run prestart && node --stack-size=10000 ./bin/cluster 1",
     "start-forever": "node scripts/unsupported_forever.js",
     "stop-forever": "node scripts/unsupported_forever.js",
     "reload-forever": "node scripts/unsupported_forever.js",
     "start-pm2": "node scripts/prestart.js pm2 production",
-    "start-pm2-debug": "node scripts/prestart.js pm2 development && node scripts/pm2.js logs explorer",
-    "stop-pm2": "node scripts/pm2.js stop explorer",
-    "reload-pm2": "node scripts/pm2.js reload explorer --update-env",
-    "status-pm2": "node scripts/pm2.js status explorer",
+    "start-pm2-debug": "node scripts/prestart.js pm2 development && node scripts/pm2.js logs",
+    "stop-pm2": "node scripts/pm2.js stop ecosystem.config.js",
+    "reload-pm2": "node scripts/pm2.js reload ecosystem.config.js --update-env",
+    "status-pm2": "node scripts/pm2.js status",
     "save-pm2": "node scripts/pm2.js save",
     "test": "node ./node_modules/jasmine/bin/jasmine.js test/*Spec.js",
     "prestart": "node ./scripts/prestart.js",
@@ -32,6 +32,7 @@
     "sync-blocks-loop": "bash ./scripts/nito_v4_sync_loop.sh",
     "sync-markets": "node ./scripts/sync.js market",
     "sync-peers": "node ./scripts/sync.js peers",
+    "sync-peers-loop": "node ./scripts/peer_sync_loop.js",
     "sync-masternodes": "node ./scripts/sync.js masternodes",
     "check-blocks": "node ./scripts/sync_nito.js",
     "reindex": "node ./scripts/reindex_nito.js",
@@ -81,5 +82,9 @@
     "jasmine": {
       "glob": "14.0.6"
     }
+  },
+  "allowScripts": {
+    "@parcel/watcher": false,
+    "mongodb-memory-server": false
   }
 }

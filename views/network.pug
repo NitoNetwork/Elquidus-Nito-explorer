@@ -18,11 +18,28 @@ block content
       return lengthMenuOpts;
     }
     $(document).ready(function() {
+      var peerDataStatus = !{JSON.stringify(peer_data_status)};
+      var countryUnknown = !{JSON.stringify(settings.localization.net_country_unknown)};
+      var emptyPeerMessage = peerDataStatus == 'current'
+        ? !{JSON.stringify(settings.localization.net_no_peers)}
+        : (peerDataStatus == 'stale'
+          ? !{JSON.stringify(settings.localization.net_no_current_peers)}
+          : !{JSON.stringify(settings.localization.net_peer_data_unavailable)});
+
+      function showPeerLoadError() {
+        $('#peer-load-error').removeClass('d-none');
+        fixFooterHeightAndPosition();
+      }
+
       $.ajax({
         method: 'GET',
         url: '/ext/getnetworkpeers/internal',
         dataType: 'json'
       }).done(function(peers) {
+        if (!Array.isArray(peers)) {
+          showPeerLoadError();
+          peers = [];
+        }
         var setting_txPerPage = parseInt("#{settings.network_page.connections_table.items_per_page}");
         var setting_con_port_filter = "#{settings.network_page.connections_table.port_filter}";
         var setting_con_hide_protocols = !{JSON.stringify(settings.network_page.connections_table.hide_protocols)};
@@ -51,18 +68,18 @@ block content
 
         if (setting_con_port_filter == '-1') {
           columns = [
-            { data: 'address', width: '25%' },
-            { data: 'protocol', width: '25%' },
-            { data: 'version', width:'25%' },
-            { data: 'country', width: '25%'}
+            { data: 'address', width: '25%', render: $.fn.dataTable.render.text() },
+            { data: 'protocol', width: '25%', render: $.fn.dataTable.render.text() },
+            { data: 'version', width:'25%', render: $.fn.dataTable.render.text() },
+            { data: 'country', width: '25%', render: $.fn.dataTable.render.text() }
           ];
         } else {
           columns = [
-            { data: 'address', width: '20%' },
-            { data: 'port', width: '20%' },
-            { data: 'protocol', width: '20%' },
-            { data: 'version', width:'20%' },
-            { data: 'country', width: '20%'}
+            { data: 'address', width: '20%', render: $.fn.dataTable.render.text() },
+            { data: 'port', width: '20%', render: $.fn.dataTable.render.text() },
+            { data: 'protocol', width: '20%', render: $.fn.dataTable.render.text() },
+            { data: 'version', width:'20%', render: $.fn.dataTable.render.text() },
+            { data: 'country', width: '20%', render: $.fn.dataTable.render.text() }
           ];
         }
 
@@ -78,6 +95,7 @@ block content
           lengthMenu: generateLengthMenu(setting_txPerPage, !{JSON.stringify(settings.network_page.connections_table.page_length_options)}),
           scrollX: true,
           language: {
+            emptyTable: emptyPeerMessage,
             paginate: {
               previous: '<',
               next: '>'
@@ -86,22 +104,20 @@ block content
           data: connectionRows,
           rowCallback: function (row, data, index) {
             var colIndex = 1;
-            var flagBlock = '';
+            var countryCell;
 
-            if (data['country_code'].length > 1) {
-              flagBlock = '<span class="margin-left-5 fi fi-'+data['country_code'].toLowerCase()+'"></span>';
-            }
-
-            $("td:eq(0)", row).html(data['address']).addClass('breakWord');
+            $("td:eq(0)", row).text(data['address'] || '').addClass('breakWord');
 
             if (setting_con_port_filter != '-1') {
-              $("td:eq(1)", row).html(data['port']);
+              $("td:eq(1)", row).text(data['port'] || '');
               colIndex = 2;
             }
 
-            $(`td:eq(${colIndex})`, row).html(data['protocol']);
-            $(`td:eq(${colIndex + 1})`, row).html(data['version']);
-            $(`td:eq(${colIndex + 2})`, row).html(data['country'] + flagBlock);
+            $(`td:eq(${colIndex})`, row).text(data['protocol'] || '');
+            $(`td:eq(${colIndex + 1})`, row).text(data['version'] || '');
+            countryCell = $(`td:eq(${colIndex + 2})`, row).empty().text(data['country'] || countryUnknown);
+            if (typeof data['country_code'] == 'string' && /^[a-z]{2}$/i.test(data['country_code']))
+              countryCell.append($('<span>').addClass('margin-left-5 fi fi-' + data['country_code'].toLowerCase()));
           },
           fnDrawCallback: function(settings) {
             fixDataTableColumns();
@@ -150,6 +166,7 @@ block content
           lengthMenu: generateLengthMenu(setting_txPerPage, !{JSON.stringify(settings.network_page.addnodes_table.page_length_options)}),
           scrollX: true,
           language: {
+            emptyTable: emptyPeerMessage,
             paginate: {
               previous: '<',
               next: '>'
@@ -157,14 +174,17 @@ block content
           },
           data: addNodeRows,
           rowCallback: function(row, data, index) {
-            $("td:eq(0)", row).css('white-space', 'nowrap').html(`<button class="btn btn-sm btn-copy" type="button"><i class="fa-regular fa-copy"></i></button>&nbsp;<span>${data.nodes}</span>`);
+            var cell = $("td:eq(0)", row).css('white-space', 'nowrap').empty();
+            cell.append($('<button>', {class: 'btn btn-sm btn-copy', type: 'button', 'aria-label': 'Copy'}).append($('<i>', {class: 'fa-regular fa-copy'})));
+            cell.append(document.createTextNode('\u00a0'));
+            cell.append($('<span>').text(data.nodes || ''));
           },
           fnDrawCallback: function(settings) {
             fixDataTableColumns();
             fixFooterHeightAndPosition();
           },
           columns: [
-            {data: 'nodes', width: '100%'}
+            {data: 'nodes', width: '100%', render: $.fn.dataTable.render.text()}
           ],
           columnDefs: [
             {targets: '_all', className: 'text-start'}
@@ -210,6 +230,7 @@ block content
           lengthMenu: generateLengthMenu(setting_txPerPage, !{JSON.stringify(settings.network_page.onetry_table.page_length_options)}),
           scrollX: true,
           language: {
+            emptyTable: emptyPeerMessage,
             paginate: {
               previous: '<',
               next: '>'
@@ -217,19 +238,24 @@ block content
           },
           data: oneTryRows,
           rowCallback: function(row, data, index) {
-            $("td:eq(0)", row).css('white-space', 'nowrap').html(`<button class="btn btn-sm btn-copy" type="button"><i class="fa-regular fa-copy"></i></button>&nbsp;<span>${data.nodes}</span>`);
+            var cell = $("td:eq(0)", row).css('white-space', 'nowrap').empty();
+            cell.append($('<button>', {class: 'btn btn-sm btn-copy', type: 'button', 'aria-label': 'Copy'}).append($('<i>', {class: 'fa-regular fa-copy'})));
+            cell.append(document.createTextNode('\u00a0'));
+            cell.append($('<span>').text(data.nodes || ''));
           },
           fnDrawCallback: function(settings) {
             fixDataTableColumns();
             fixFooterHeightAndPosition();
           },
           columns: [
-            {data: 'nodes', width: '100%'}
+            {data: 'nodes', width: '100%', render: $.fn.dataTable.render.text()}
           ],
           columnDefs: [
             {targets: '_all', className: 'text-start'}
           ]
         });
+      }).fail(function() {
+        showPeerLoadError();
       });
 
       $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
@@ -259,7 +285,7 @@ block content
         if (btn.html().indexOf('fa-copy') > -1) {
           var tmp = $('<input>');
           $('body').append(tmp);
-          tmp.val(btn.parent().find('span').html()).select();
+          tmp.val(btn.parent().find('span').text()).select();
           document.execCommand('copy');
           tmp.remove();
 
@@ -303,6 +329,11 @@ block content
               else
                 .sub-page-header.text-muted=settings.localization.net_description.replace('{1}', settings.coin.name)
         .cardSpacer.clearfix
+      if peer_data_status == 'stale'
+        #peer-data-status.alert.alert-warning.py-2(role='status')=settings.localization.net_peer_data_stale
+      else if peer_data_status == 'unavailable'
+        #peer-data-status.alert.alert-warning.py-2(role='status')=settings.localization.net_peer_data_unavailable
+      #peer-load-error.alert.alert-danger.py-2.d-none(role='alert')=settings.localization.net_peer_load_failed
       ul.nav.nav-tabs(role='tablist')
         li.nav-item(role='presentation')
           a.nav-link.active(href='#connections', aria-controls='connections', role='tab', data-bs-toggle='tab') #{settings.localization.net_connections}
@@ -321,6 +352,7 @@ block content
                 th.text-center #{settings.localization.net_subversion}
                 th.text-center #{settings.localization.net_country}
             tbody.text-center
+          .small.text-muted.mt-2=settings.localization.net_country_estimate
       #addnodes.container.tab-pane(style='margin-top:0;border-top:0;')
         .card.card-default.border-0
           .card-body.border-top-0

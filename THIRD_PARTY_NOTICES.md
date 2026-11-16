@@ -19,3 +19,8 @@ integrities recorded in `package-lock.json`. Their package metadata and license
 files are installed by `npm ci`; those packages remain under their respective
 licenses. Browser libraries loaded from their publishers' CDNs remain under their
 respective upstream licenses and are not relicensed by this repository.
+
+The optional peer-country enrichment calls the external
+[country.is](https://country.is/) HTTPS API by default. No country.is code or data
+is bundled or redistributed. Operators can disable the call or configure a
+self-hosted compatible endpoint; peer collection continues without it.

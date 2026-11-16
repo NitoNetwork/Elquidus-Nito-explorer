@@ -50,7 +50,7 @@ test('legacy HTTP explorer consumers return unavailable on malformed JSON, outag
       settings.shared_pages.page_header.panels.network_panel.nethash = source;
       assert.equal(await new Promise(resolve => explorer.get_hashrate(resolve)), '-');
     }
-    const geo = await new Promise(resolve => explorer.get_geo_location('127.0.0.1', (error, value) => resolve({error, value})));
+    const geo = await new Promise(resolve => explorer.get_geo_location('8.8.8.8', 'ipv4', (error, value) => resolve({error, value})));
     assert.ok(geo.error);
     assert.equal(geo.value, null);
   }

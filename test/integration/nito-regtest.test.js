@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
+const http = require('node:http');
 const {spawn} = require('node:child_process');
 const {randomBytes} = require('node:crypto');
 const {MongoClient} = require('mongodb');
@@ -25,7 +26,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const cfg = {host: '127.0.0.1', port: await port(), username: 'regtest', password: randomBytes(24).toString('hex'), timeout: 240000};
   const client = new Client(cfg);
   const rpc = (method, params = []) => new Promise((resolve, reject) => client.cmd(method, ...params, (err, value) => err ? reject(err) : resolve(value)));
-  let daemon, mongo, conn, httpServer;
+  let daemon, mongo, conn, httpServer, peerRpcServer;
   const start = async () => {
     daemon = spawn(process.env.NITO_DAEMON, [`-datadir=${temp}`, '-regtest', '-server=1', '-listen=0', '-connect=0',
       '-txindex=1', '-coinstatsindex=1', '-orchardindex=1', '-privateactivationheight=105', '-fallbackfee=0.0001',
@@ -37,6 +38,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   };
   t.after(async () => {
     if (httpServer) await new Promise(r => httpServer.close(r));
+    if (peerRpcServer?.listening) await new Promise(r => peerRpcServer.close(r));
     await require('mongoose').disconnect();
     if (conn) await conn.close();
     if (mongo) await mongo.stop();
@@ -155,7 +157,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   Object.assign(operationConfig, {wallet: cfg, coin: {...operationConfig.coin, name: 'Nito'}, dbsettings: {
     user: '', password: '', database: legacyName, address: '127.0.0.1', port: Number(mongoUrl.port), auth_source: ''}});
   fs.writeFileSync(operationalSettings, JSON.stringify(operationConfig));
-  async function runOperation(args, script = 'reindex_nito.js') {
+  async function runOperation(args, script = 'reindex_nito.js', expectedCode = 0) {
     const child = spawn(process.execPath, [path.resolve(__dirname, '../../scripts', script), ...args], {
       cwd: path.resolve(__dirname, '../..'), windowsHide: true,
       env: {...process.env, NITO_SETTINGS_PATH: operationalSettings}, stdio: ['ignore', 'pipe', 'pipe']});
@@ -165,14 +167,77 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
       child.once('error', error => {clearTimeout(timeout); reject(error);});
       child.once('exit', value => {clearTimeout(timeout); resolve(value);});
     });
-    assert.equal(code, 0, output); return output;
+    assert.equal(code, expectedCode, output); return output;
   }
   const commandArgs = ['--isolated', '--source-db', legacyName, '--target-db', rebuiltName];
   assert.match(await runOperation([...commandArgs, '--resume']), /"complete": true/);
   assert.match(await runOperation([...commandArgs, '--rollback']), /"verified": true/);
+  // Exercise the complete peer command with an isolated RPC fixture and database.
+  const peerDbName = dbName + '_peer_sync';
+  const peerDb = conn.db(peerDbName);
+  await peerDb.collection('coinstats').insertOne({coin: 'Nito'});
+  let peerRpcResult = [
+    {addr: '8.8.8.8:9100', network: 'ipv4', version: 70017, subver: '/Nito:4.0.0/'},
+    {addr: '127.0.0.1:9100', network: 'ipv4', version: 70017, subver: '/Nito:4.0.0/'},
+    {addr: 'example.onion:9100', network: 'onion', version: 70017, subver: '/Nito:4.0.0/'},
+    {addr: 'example.b32.i2p:0', network: 'i2p', version: 70017, subver: '/Nito:4.0.0/'}
+  ];
+  let peerRpcError = null;
+  const peerRpcPort = await port();
+  peerRpcServer = http.createServer((request, response) => {
+    let body = '';
+    request.on('data', chunk => body += chunk);
+    request.on('end', () => {
+      const payload = JSON.parse(body);
+      const batch = Array.isArray(payload) ? payload : [payload];
+      const replies = batch.map(item => peerRpcError ?
+        {id: item.id, result: null, error: {code: -1, message: peerRpcError}} :
+        {id: item.id, result: item.method === 'getpeerinfo' ? peerRpcResult : null, error: null});
+      response.writeHead(200, {'Content-Type': 'application/json'});
+      response.end(JSON.stringify(Array.isArray(payload) ? replies : replies[0]));
+    });
+  });
+  await new Promise(resolve => peerRpcServer.listen(peerRpcPort, '127.0.0.1', resolve));
+  operationConfig.dbsettings.database = peerDbName;
+  operationConfig.wallet = {...cfg, port: peerRpcPort};
+  operationConfig.network_page.peer_sync.geolocation = {
+    ...operationConfig.network_page.peer_sync.geolocation,
+    provider_url: 'https://127.0.0.1:1/{ip}', timeout_ms: 1000, max_failures_per_pass: 1
+  };
+  fs.writeFileSync(operationalSettings, JSON.stringify(operationConfig));
+  assert.match(await runOperation(['peers'], 'sync.js'), /Peer sync complete \(4 peer record\(s\)\)/);
+  assert.equal(await peerDb.collection('peers').countDocuments(), 4);
+  const firstPublicPeer = await peerDb.collection('peers').findOne({address: '8.8.8.8'});
+  assert.equal(firstPublicPeer.country, '');
+  assert.ok(firstPublicPeer.geo_attempted_at instanceof Date);
+  assert.equal(firstPublicPeer.geo_checked_at, null);
+  const firstPeerTimestamp = (await peerDb.collection('coinstats').findOne({coin: 'Nito'})).network_last_updated;
+  assert.ok(firstPeerTimestamp > 0);
+  const peerIndexes = await peerDb.collection('peers').listIndexes().toArray();
+  assert.equal(peerIndexes.find(indexInfo => indexInfo.name === 'createdAt_1').expireAfterSeconds, 86400);
+  assert.equal(peerIndexes.find(indexInfo => indexInfo.name === 'peer_lookup_idx').unique, undefined);
+  peerRpcResult[0].subver = '/Nito:4.0.1/';
+  await runOperation(['peers'], 'sync.js');
+  assert.equal(await peerDb.collection('peers').countDocuments(), 4);
+  assert.equal((await peerDb.collection('peers').findOne({address: '8.8.8.8'})).version, 'Nito:4.0.1');
+  const stablePeerTimestamp = (await peerDb.collection('coinstats').findOne({coin: 'Nito'})).network_last_updated;
+  peerRpcResult = [{addr: ''}];
+  await runOperation(['peers'], 'sync.js', 1);
+  assert.equal((await peerDb.collection('coinstats').findOne({coin: 'Nito'})).network_last_updated, stablePeerTimestamp);
+  peerRpcError = 'simulated getpeerinfo failure';
+  await runOperation(['peers'], 'sync.js', 2);
+  assert.equal((await peerDb.collection('coinstats').findOne({coin: 'Nito'})).network_last_updated, stablePeerTimestamp);
+  peerRpcError = null;
+  peerRpcResult = [];
+  await delay(1100);
+  assert.match(await runOperation(['peers'], 'sync.js'), /Peer sync complete \(0 peer record\(s\)\)/);
+  assert.ok((await peerDb.collection('coinstats').findOne({coin: 'Nito'})).network_last_updated > stablePeerTimestamp);
+  await new Promise(resolve => peerRpcServer.close(resolve));
+  peerRpcServer = null;
   // Exercise the documented startup and sync entry points against the rebuilt copy.
   // The retained source remains frozen; no supervisor or public endpoint is started.
   operationConfig.dbsettings.database = rebuiltName;
+  operationConfig.wallet = cfg;
   operationConfig.markets_page.enabled = false;
   fs.writeFileSync(operationalSettings, JSON.stringify(operationConfig));
   const startupState = await rebuiltDb.collection('nito_state').findOne({_id: 'Nito'});
@@ -273,6 +338,14 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal(preservedRichlist.balance.find(row => row.a_id === transparent).claim_name, 'Historical transparent label');
   await require('mongoose').disconnect();
   await require('mongoose').connect(mongo.getUri(dbName));
+  const peerUpdatedAt = new Date();
+  await db.collection('peers').insertMany([
+    {address: '8.8.8.8', port: '9100', protocol: '70016', version: '<img src=x onerror="window.peerXss=1">', network: 'ipv4',
+      country: 'United States', country_code: 'US', geo_checked_at: peerUpdatedAt, geo_attempted_at: peerUpdatedAt, createdAt: peerUpdatedAt},
+    {address: '2606:4700:4700::1111', port: '9100', protocol: '70016', version: 'Nito:4.0.0', network: 'ipv6',
+      country: '', country_code: '', geo_checked_at: peerUpdatedAt, createdAt: peerUpdatedAt}
+  ]);
+  await db.collection('coinstats').updateOne({coin: 'Nito'}, {$set: {network_last_updated: Math.floor(peerUpdatedAt.getTime() / 1000)}});
   const app = require('../../app');
   const uiPort = await port();
   httpServer = app.listen(uiPort, '127.0.0.1');
@@ -282,6 +355,30 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<[^>]*>/g, ' ');
   const response = await fetch(base + '/ext/getorchardpools');
   assert.equal(response.status, 200); assert.deepEqual(await response.json(), pools);
+  const networkPeers = await (await fetch(base + '/ext/getnetworkpeers')).json();
+  assert.equal(Array.isArray(networkPeers), true);
+  assert.equal(networkPeers.length, 2);
+  assert.equal(networkPeers[0].address, '8.8.8.8');
+  assert.equal(networkPeers[0].network, 'ipv4');
+  assert.equal(networkPeers[0].country_code, 'US');
+  assert.equal(networkPeers[0].version, '<img src=x onerror="window.peerXss=1">');
+  assert.equal(Object.hasOwn(networkPeers[0], '_id'), false);
+  assert.equal(Object.hasOwn(networkPeers[0], '__v'), false);
+  assert.equal(Object.hasOwn(networkPeers[0], 'geo_checked_at'), false);
+  assert.equal(Object.hasOwn(networkPeers[0], 'geo_attempted_at'), false);
+  const databaseModule = require('../../lib/database');
+  const workingPeerReader = databaseModule.get_peers;
+  databaseModule.get_peers = callback => callback(null, new Error('simulated peer database failure'));
+  try {
+    const unavailablePeers = await fetch(base + '/ext/getnetworkpeers');
+    assert.equal(unavailablePeers.status, 503);
+    assert.match((await unavailablePeers.json()).error, /could not be loaded/i);
+  } finally {
+    databaseModule.get_peers = workingPeerReader;
+  }
+  const networkPage = await fetch(base + '/network');
+  assert.equal(networkPage.status, 200);
+  assert.match(await networkPage.text(), /Country is an approximate IP-based estimate/);
   assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"/);
   const priceState = require('../../lib/market-price-state');
   // The real MongoDB -> stats -> HTTP path must retain provider status everywhere.

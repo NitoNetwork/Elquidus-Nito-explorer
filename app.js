@@ -606,15 +606,24 @@ app.use('/ext/getnetworkpeers', function(req, res) {
   // check if the getnetworkpeers api is enabled or else check the headers to see if it matches an internal ajax request from the explorer itself (TODO: come up with a more secure method of whitelisting ajax calls from the explorer)
   if ((settings.api_page.enabled == true && settings.api_page.public_apis.ext.getnetworkpeers.enabled == true) || (req.headers['x-requested-with'] != null && req.headers['x-requested-with'].toLowerCase() == 'xmlhttprequest' && req.headers.referer != null && req.headers.accept.indexOf('text/javascript') > -1 && req.headers.accept.indexOf('application/json') > -1)) {
     // get list of peers
-    db.get_peers(function(peers) {
-      // loop through peers list and remove the mongo _id and __v keys
-      for (i = 0; i < peers.length; i++) {
-        delete peers[i]['_doc']['_id'];
-        delete peers[i]['_doc']['__v'];
-      }
+    db.get_peers(function(peers, error) {
+      if (error || !Array.isArray(peers))
+        return res.status(503).json({error: settings.localization.net_peer_load_failed});
+
+      // Keep the established array response while excluding database-only fields.
+      const publicPeers = peers.map(function(peer) {
+        const publicPeer = (typeof peer.toObject === 'function' ? peer.toObject() : {...peer});
+
+        delete publicPeer._id;
+        delete publicPeer.__v;
+        delete publicPeer.geo_checked_at;
+        delete publicPeer.geo_attempted_at;
+
+        return publicPeer;
+      });
 
       // sort ip6 addresses to the bottom
-      peers.sort(function(a, b) {
+      publicPeers.sort(function(a, b) {
         var address1 = a.address.indexOf(':') > -1;
         var address2 = b.address.indexOf(':') > -1;
 
@@ -627,7 +636,7 @@ app.use('/ext/getnetworkpeers', function(req, res) {
       });
 
       // return peer data
-      res.json(peers);
+      res.json(publicPeers);
     });
   } else
     res.end(settings.localization.method_disabled);

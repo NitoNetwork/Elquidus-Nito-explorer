@@ -2,7 +2,8 @@ var express = require('express'),
     router = express.Router(),
     settings = require('../lib/settings'),
     db = require('../lib/database'),
-    lib = require('../lib/explorer');
+    lib = require('../lib/explorer'),
+    peerSync = require('../lib/peer-sync');
 
 function send_block_data(res, block, txs, title_text, orphan) {
   res.render(
@@ -404,13 +405,14 @@ router.get('/movement', function(req, res) {
 router.get('/network', function(req, res) {
   // ensure network page is enabled
   if (settings.network_page.enabled == true) {
-    // lookup the last updated date if necessary
-    get_last_updated_date(settings.network_page.page_header.show_last_updated, 'network_last_updated', function(last_updated_date) {
+    db.get_stats(settings.coin.name, function(stats) {
+      const successfulUpdate = stats?.network_last_updated || 0;
       res.render(
         'network',
         {
           active: 'network',
-          last_updated: last_updated_date,
+          last_updated: settings.network_page.page_header.show_last_updated ? successfulUpdate : null,
+          peer_data_status: peerSync.peerDataStatus(successfulUpdate, settings.network_page.peer_sync.stale_after_seconds),
           showSync: db.check_show_sync_message(),
           customHash: get_custom_hash(),
           styleHash: get_style_hash(),

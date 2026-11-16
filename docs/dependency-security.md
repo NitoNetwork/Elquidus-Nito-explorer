@@ -9,6 +9,13 @@ Dependabot proposes patch and minor updates within the reviewed major versions.
 Major migrations require an explicit compatibility review and the complete
 validation sequence; they are not grouped into automatic maintenance pull requests.
 
+The validated Node.js 24.22.3 distribution includes npm 11.19.1, recorded in the
+`packageManager` field. The repository explicitly denies the optional install
+scripts from `@parcel/watcher` and `mongodb-memory-server`: neither is required by
+the explorer runtime or Sass compilation, and the integration test obtains its
+isolated MongoDB binary at test execution time. Treat any new unreviewed install
+script reported by npm as a failed dependency review; do not approve it blindly.
+
 Run both `npm audit --omit=dev` and `npm audit`. PM2 is a runtime dependency;
 development-only audit results must not be used to exclude an active supervisor.
 Audit results describe advisories known to the registry at the time of the check,

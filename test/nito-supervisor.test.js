@@ -24,6 +24,18 @@ test('startup requires the patched LTS and rejects unsupported operating modes b
   assert.throws(() => options(['pm2', 'production;echo']), /Usage/);
 });
 
+test('PM2 supervises one web cluster and exactly one peer collector', () => {
+  const apps = require('../ecosystem.config').apps;
+  assert.equal(apps.length, 2);
+  assert.equal(apps[0].name, 'explorer');
+  assert.equal(apps[0].exec_mode, 'cluster');
+  assert.equal(apps[1].name, 'explorer-peers');
+  assert.equal(apps[1].exec_mode, 'fork');
+  assert.equal(apps[1].instances, 1);
+  assert.equal(apps[1].kill_timeout, 15000);
+  assert.match(apps[1].script, /peer_sync_loop\.js$/);
+});
+
 test('retired Forever and automatic updater commands fail without touching services', async () => {
   for (const script of ['unsupported_forever.js', 'update_explorer.js']) {
     await assert.rejects(execute(process.execPath, [path.join(root, 'scripts', script)], {cwd: root}), error => {
@@ -34,7 +46,7 @@ test('retired Forever and automatic updater commands fail without touching servi
   }
 });
 
-test('the pinned local PM2 starts, reloads and stops a process in an isolated PM2 home', {timeout: 60000}, async t => {
+test('the pinned local PM2 starts, reloads and stops both ecosystem processes in an isolated PM2 home', {timeout: 60000}, async t => {
   // PM2 uses fixed named pipes on Windows even with a distinct PM2_HOME.
   // Refuse to run while any existing supervisor owns either pipe.
   if (process.platform === 'win32') {
@@ -50,13 +62,20 @@ test('the pinned local PM2 starts, reloads and stops a process in an isolated PM
     }
   }
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'nito-supervisor-'));
-  const pidFile = path.join(directory, 'worker.pid');
-  const worker = path.join(directory, 'worker.js');
-  const name = 'nito-supervisor-test';
+  const webWorker = path.join(directory, 'web-worker.js');
+  const peerWorker = path.join(directory, 'peer-worker.js');
+  const webName = 'nito-supervisor-web-test';
+  const peerName = 'nito-supervisor-peer-test';
   const configPath = path.join(directory, 'ecosystem.config.js');
-  await fs.writeFile(worker, `require('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`);
-  const app = {...require('../ecosystem.config').apps[0], name, script: worker, cwd: directory, instances: 1};
-  await fs.writeFile(configPath, 'module.exports = ' + JSON.stringify({apps: [app]}) + ';');
+  const workerSource = 'setInterval(() => {}, 1000);';
+  await fs.writeFile(webWorker, workerSource);
+  await fs.writeFile(peerWorker, workerSource);
+  const templates = require('../ecosystem.config').apps;
+  const apps = [
+    {...templates[0], name: webName, script: webWorker, cwd: directory, instances: 1},
+    {...templates[1], name: peerName, script: peerWorker, cwd: directory, instances: 1}
+  ];
+  await fs.writeFile(configPath, 'module.exports = ' + JSON.stringify({apps}) + ';');
   const env = {...process.env, PM2_HOME: directory, PM2_SILENT: 'true', PM2_DISCRETE_MODE: 'true', PM2_DISABLE_VERSION_CHECK: 'true'};
   const cli = (...args) => execute(process.execPath, [path.join(root, 'scripts/pm2.js'), ...args], {cwd: root, env, timeout: 20000});
   t.after(async () => {
@@ -70,21 +89,26 @@ test('the pinned local PM2 starts, reloads and stops a process in an isolated PM
   await cli('startOrReload', configPath, '--env', 'production');
   const list = async () => JSON.parse((await cli('jlist')).stdout.trim());
   let processes = await list();
-  assert.equal(processes.length, 1);
-  assert.equal(processes[0].name, name);
-  assert.equal(processes[0].pm2_env.status, 'online');
-  assert.equal(processes[0].pm2_env.NODE_ENV, 'production');
-  assert.equal(processes[0].pm2_env.exec_mode, 'cluster_mode');
-  const oldPid = processes[0].pid;
-  assert.ok(oldPid > 0);
-  await cli('reload', name);
+  assert.equal(processes.length, 2);
+  const byName = name => processes.find(process => process.name === name);
+  assert.equal(byName(webName).pm2_env.status, 'online');
+  assert.equal(byName(webName).pm2_env.NODE_ENV, 'production');
+  assert.equal(byName(webName).pm2_env.exec_mode, 'cluster_mode');
+  assert.equal(byName(peerName).pm2_env.status, 'online');
+  assert.equal(byName(peerName).pm2_env.NODE_ENV, 'production');
+  assert.equal(byName(peerName).pm2_env.exec_mode, 'fork_mode');
+  const oldPids = new Map(processes.map(process => [process.name, process.pid]));
+  assert.ok([...oldPids.values()].every(pid => pid > 0));
+  await cli('reload', configPath, '--update-env');
   processes = await list();
-  assert.equal(processes[0].pm2_env.status, 'online');
-  assert.notEqual(processes[0].pid, oldPid);
-  await cli('stop', name);
+  for (const process of processes) {
+    assert.equal(process.pm2_env.status, 'online');
+    assert.notEqual(process.pid, oldPids.get(process.name));
+  }
+  await cli('stop', configPath);
   processes = await list();
-  assert.equal(processes[0].pm2_env.status, 'stopped');
-  assert.equal(processes[0].pid, 0);
-  await cli('delete', name);
+  assert.equal(processes.length, 2);
+  assert.ok(processes.every(process => process.pm2_env.status === 'stopped' && process.pid === 0));
+  await cli('delete', 'all');
   assert.deepEqual(await list(), []);
 });
