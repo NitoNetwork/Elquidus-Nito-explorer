@@ -1,4 +1,5 @@
 'use strict';
+require('../lib/instance-runtime').configurePm2Home();
 const supervisor = require('../lib/supervisor');
 try {
   supervisor.checkNodeVersion(process.versions.node);

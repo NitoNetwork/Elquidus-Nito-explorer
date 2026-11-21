@@ -46,6 +46,9 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     console.log('Regtest evidence directory:', temp);
   });
   await start();
+  const initialTip = await rpc('getblockchaininfo');
+  assert.equal(initialTip.privateTxActivationHeight, 105, 'Core binary must expose the configured V4 activation height');
+  assert.equal(initialTip.activated, false, 'Core binary must expose the pre-activation V4 state');
   await rpc('createwallet', ['explorer-test']);
   const miner = await rpc('getnewaddress');
   async function mine(count = 1) {
@@ -55,7 +58,11 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     return rpc('getbestblockhash');
   }
   const collect = collector(rpc);
-  const genesisPools = await until(async () => { const p = await collect(); return p.status === 'available' ? p : false; });
+  const genesisPools = await until(async () => {
+    const p = await collect();
+    if (p.status !== 'available') throw Error('Genesis pool snapshot unavailable: ' + p.reason);
+    return p;
+  });
   assert.equal(genesisPools.activated, false);
   const pubkey = (await rpc('getaddressinfo', [miner])).pubkey;
   const p2pkDescriptor = await rpc('getdescriptorinfo', ['pk(' + pubkey + ')']);
@@ -153,9 +160,21 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const rollback = await verifyRollback(conn, legacyName, rebuiltName);
   const operationalSettings = path.join(temp, 'rebuild-settings.json');
   const mongoUrl = new URL(mongo.getUri());
+  const regtestGenesis = await rpc('getblockhash', [0]);
   const operationConfig = JSON.parse(require('jsonminify')(fs.readFileSync(path.resolve(__dirname, '../../settings.json.template'), 'utf8')));
-  Object.assign(operationConfig, {wallet: cfg, coin: {...operationConfig.coin, name: 'Nito'}, dbsettings: {
-    user: '', password: '', database: legacyName, address: '127.0.0.1', port: Number(mongoUrl.port), auth_source: ''}});
+  Object.assign(operationConfig, {
+    wallet: {host: cfg.host, port: cfg.port, username: cfg.username, password: cfg.password},
+    coin: {...operationConfig.coin, name: 'Nito'},
+    network: {
+      ...operationConfig.network,
+      id: 'regtest', label: 'Regtest', enforce: true, expected_chain: 'regtest', expected_genesis: regtestGenesis,
+      process_suffix: '', public_url: 'https://regtest.invalid/', robots_noindex: true,
+      require_indexes: ['txindex', 'coinstatsindex'], require_synced: true,
+      private_activation_height: 105, require_private_active: true,
+      switch: {enabled: false, url: '', label: ''}
+    },
+    dbsettings: {user: '', password: '', database: legacyName, address: '127.0.0.1', port: Number(mongoUrl.port), auth_source: ''}
+  });
   fs.writeFileSync(operationalSettings, JSON.stringify(operationConfig));
   async function runOperation(args, script = 'reindex_nito.js', expectedCode = 0) {
     const child = spawn(process.execPath, [path.resolve(__dirname, '../../scripts', script), ...args], {
@@ -176,6 +195,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const peerDbName = dbName + '_peer_sync';
   const peerDb = conn.db(peerDbName);
   await peerDb.collection('coinstats').insertOne({coin: 'Nito'});
+  await peerDb.collection('nito_state').insertOne({_id: 'Nito', schema_version: 2, chain: 'regtest', genesis: regtestGenesis});
   let peerRpcResult = [
     {addr: '8.8.8.8:9100', network: 'ipv4', version: 70017, subver: '/Nito:4.0.0/'},
     {addr: '127.0.0.1:9100', network: 'ipv4', version: 70017, subver: '/Nito:4.0.0/'},
@@ -183,6 +203,11 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     {addr: 'example.b32.i2p:0', network: 'i2p', version: 70017, subver: '/Nito:4.0.0/'}
   ];
   let peerRpcError = null;
+  const verifiedTip = await rpc('getblockchaininfo');
+  const verifiedIndexes = await until(async () => {
+    const indexes = await rpc('getindexinfo');
+    return indexes.txindex?.synced === true && indexes.coinstatsindex?.synced === true ? indexes : false;
+  });
   const peerRpcPort = await port();
   peerRpcServer = http.createServer((request, response) => {
     let body = '';
@@ -190,9 +215,19 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     request.on('end', () => {
       const payload = JSON.parse(body);
       const batch = Array.isArray(payload) ? payload : [payload];
-      const replies = batch.map(item => peerRpcError ?
-        {id: item.id, result: null, error: {code: -1, message: peerRpcError}} :
-        {id: item.id, result: item.method === 'getpeerinfo' ? peerRpcResult : null, error: null});
+      const replies = batch.map(item => {
+        if (peerRpcError && item.method === 'getpeerinfo')
+          return {id: item.id, result: null, error: {code: -1, message: peerRpcError}};
+        const results = {
+          getpeerinfo: peerRpcResult,
+          getblockchaininfo: verifiedTip,
+          getblockhash: regtestGenesis,
+          getindexinfo: verifiedIndexes
+        };
+        if (!Object.hasOwn(results, item.method))
+          return {id: item.id, result: null, error: {code: -32601, message: 'Method not found'}};
+        return {id: item.id, result: results[item.method], error: null};
+      });
       response.writeHead(200, {'Content-Type': 'application/json'});
       response.end(JSON.stringify(Array.isArray(payload) ? replies : replies[0]));
     });
@@ -237,7 +272,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   // Exercise the documented startup and sync entry points against the rebuilt copy.
   // The retained source remains frozen; no supervisor or public endpoint is started.
   operationConfig.dbsettings.database = rebuiltName;
-  operationConfig.wallet = cfg;
+  operationConfig.wallet = {host: cfg.host, port: cfg.port, username: cfg.username, password: cfg.password};
   operationConfig.markets_page.enabled = false;
   fs.writeFileSync(operationalSettings, JSON.stringify(operationConfig));
   const startupState = await rebuiltDb.collection('nito_state').findOne({_id: 'Nito'});

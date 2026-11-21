@@ -1,7 +1,9 @@
 'use strict';
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
+require('../lib/instance-runtime').configurePm2Home();
 const supervisor = require('../lib/supervisor');
+const networkProfile = require('../lib/network-profile');
 
 function options(args) {
   const words = args.flatMap(arg => arg.split(/\s+/)).filter(Boolean);
@@ -20,17 +22,25 @@ function main() {
     if (config.mode === 'pm2') supervisor.localCli();
     execFileSync(process.execPath, [path.join(__dirname, 'compile_css.js')], {stdio: 'inherit'});
     const db = require('../lib/database');
-    db.connect(null, () => {
-      db.initialize_data_startup(() => {
-        try {
-          if (config.mode === 'pm2')
-            supervisor.run(['startOrReload', path.resolve(__dirname, '../ecosystem.config.js'), '--env', config.environment]);
-          process.exit(0);
-        } catch (error) {
-          console.error(error.message);
-          process.exit(1);
-        }
-      });
+    const mongoose = require('mongoose');
+    db.connect(null, async () => {
+      try {
+        await networkProfile.verify({database: mongoose.connection.db});
+        db.initialize_data_startup(() => {
+          try {
+            if (config.mode === 'pm2')
+              supervisor.run(['startOrReload', path.resolve(__dirname, '../ecosystem.config.js'), '--env', config.environment]);
+            process.exit(0);
+          } catch (error) {
+            console.error(error.message);
+            process.exit(1);
+          }
+        });
+      } catch (error) {
+        console.error(`Explorer startup refused: ${error.message}`);
+        await mongoose.disconnect().catch(() => {});
+        process.exit(1);
+      }
     });
   } catch (error) {
     console.error(error.message);

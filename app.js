@@ -60,6 +60,7 @@ if (settings.webserver.cors.enabled == true) {
     res.header("Access-Control-Allow-Origin", settings.webserver.cors.corsorigin);
     res.header('Access-Control-Allow-Methods', 'DELETE, PUT, GET, POST');
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header('Access-Control-Expose-Headers', 'X-Nito-Network, X-Nito-Amount-Format, X-Amount-Scope');
     next();
   });
 }
@@ -926,6 +927,7 @@ settings.api_page.public_apis.rpc.getmasternodelist = { "enabled": false };
 app.set('explorer_version', package_metadata.version);
 app.set('localization', settings.localization);
 app.set('coin', settings.coin);
+app.set('network', settings.network);
 app.set('network_history', settings.network_history);
 app.set('shared_pages', settings.shared_pages);
 app.set('index_page', settings.index_page);

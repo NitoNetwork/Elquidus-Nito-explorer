@@ -34,6 +34,8 @@
   "difficulty": "Difficulty",
   "masternodecount": "Masternodes",
   "network": "Network",
+  "network_current": "Current network: {1}",
+  "network_switch_to": "Switch to {1}",
   "height": "Height",
   "timestamp": "Timestamp",
   "size": "Size",

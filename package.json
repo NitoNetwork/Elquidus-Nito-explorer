@@ -33,6 +33,7 @@
     "sync-markets": "node ./scripts/sync.js market",
     "sync-peers": "node ./scripts/sync.js peers",
     "sync-peers-loop": "node ./scripts/peer_sync_loop.js",
+    "create-testnet-settings": "node ./scripts/create_testnet_settings.js",
     "sync-masternodes": "node ./scripts/sync.js masternodes",
     "check-blocks": "node ./scripts/sync_nito.js",
     "reindex": "node ./scripts/reindex_nito.js",

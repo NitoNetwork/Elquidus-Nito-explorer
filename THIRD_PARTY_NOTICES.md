@@ -24,3 +24,14 @@ The optional peer-country enrichment calls the external
 [country.is](https://country.is/) HTTPS API by default. No country.is code or data
 is bundled or redistributed. Operators can disable the call or configure a
 self-hosted compatible endpoint; peer collection continues without it.
+
+## Nito Network brand asset
+
+`public/img/nito-testnet-page-title-green.png` is the Nito Network testnet brand
+image selected for this explorer and sourced from the Nito Network testnet
+explorer at
+`https://testnet-explorer.nito.tools/img/page-title-green.png`. Copyright and
+brand rights remain with Nito Network. It is a project
+branding asset, not third-party application code, and the repository's BSD
+license does not grant rights to use the Nito name or marks for an unrelated
+product.

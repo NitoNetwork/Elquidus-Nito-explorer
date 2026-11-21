@@ -6,6 +6,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 const amounts = require('../public/js/nito-amount');
 
+test('browser integrations can read the additive exact-amount and network headers through CORS', () => {
+  const app = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
+  assert.match(app, /Access-Control-Expose-Headers[^\n]+X-Nito-Network[^\n]+X-Nito-Amount-Format[^\n]+X-Amount-Scope/);
+});
+
 test('browser amount consumer preserves nitoshis beyond Number precision', () => {
   assert.equal(amounts.format('1284565889.99999999'), '1,284,565,889.99999999');
   assert.equal(amounts.format('-0.00000001'), '-0.00000001');
@@ -81,6 +86,7 @@ test('legacy masternode monetary endpoints fail explicitly instead of rounding o
     const response = await fetch('http://127.0.0.1:' + server.address().port + '/ext/' + method + '/transparent/0');
     assert.equal(response.status, 410);
     assert.equal(response.headers.get('x-nito-amount-format'), 'decimal-string-v1');
+    assert.equal(response.headers.get('x-nito-network'), 'mainnet');
     assert.equal((await response.json()).code, 'unsupported_nito_feature');
   }
 });

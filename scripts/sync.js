@@ -18,6 +18,7 @@ var lockCreated = false;
 var stopSync = false;
 var marketFailures = 0;
 const peerSync = require('../lib/peer-sync');
+const networkProfile = require('../lib/network-profile');
 
 // prevent stopping of the sync script to be able to gracefully shut down
 process.on('SIGINT', () => {
@@ -975,7 +976,8 @@ if (lib.is_locked([database]) == false) {
 
     mongoose.set('strictQuery', true);
 
-    mongoose.connect(dbString).then(() => {
+    mongoose.connect(dbString).then(async () => {
+      await networkProfile.verify({database: mongoose.connection.db});
       if (database == 'index') {
         db.check_stats(settings.coin.name, function(exists) {
           if (exists == false) {
@@ -1337,7 +1339,7 @@ if (lib.is_locked([database]) == false) {
         }
       }
     }).catch((err) => {
-      console.log('Error: Unable to connect to database: %s', err);
+      console.log('Error: Sync refused: %s', err.message || err);
       exit(1);
     });
   } else {

@@ -1,0 +1,21 @@
+storage:
+  dbPath: /var/lib/mongodb-testnet-explorer
+  wiredTiger:
+    engineConfig:
+      # MongoDB enforces a practical minimum close to this value. Review memory
+      # capacity before colocating another mongod instance.
+      cacheSizeGB: 0.25
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb-testnet-explorer/mongod.log
+net:
+  bindIp: 127.0.0.1
+  port: 27018
+  unixDomainSocket:
+    enabled: false
+replication:
+  replSetName: nitoTestnetRs
+security:
+  authorization: enabled
+  keyFile: /etc/nito-explorer-testnet-mongodb.key

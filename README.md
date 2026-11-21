@@ -9,6 +9,7 @@ This repository contains the explorer application and public deployment examples
 ## Live Explorer
 
 - Explorer: https://explorer.nito.network/
+- Testnet explorer: https://testnet-explorer.nito.network/
 
 ## Features
 
@@ -95,6 +96,14 @@ npm ci
 cp settings.json.template settings.json
 nano settings.json
 ~~~
+
+To run testnet beside an existing mainnet explorer, do not copy the live
+database or reuse its checkout, settings, port, or process names. Follow the
+[side-by-side testnet installation and rollback guide](docs/testnet-side-by-side.md).
+It provisions an isolated testnet profile and validates Core's chain, genesis,
+archive mode, indexes, synchronization, and Orchard activation before serving
+or indexing data. A checkout marker also selects a separate PM2 home so testnet
+service commands cannot address the mainnet daemon.
 
 Before the first start, review `network_page.peer_sync.geolocation.enabled`.
 The default country enrichment sends only publicly routable peer IP addresses to

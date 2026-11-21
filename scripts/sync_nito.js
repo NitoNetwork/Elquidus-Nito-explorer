@@ -4,6 +4,7 @@ const {MongoClient} = require('mongodb');
 const {Index} = require('../lib/nito-index');
 const settings = require('../lib/settings');
 const rpc = require('../lib/nito-rpc');
+const networkProfile = require('../lib/network-profile');
 
 async function main() {
   const cfg = settings.dbsettings;
@@ -15,7 +16,9 @@ async function main() {
   process.once('SIGTERM', () => { stopped = true; });
   try {
     await client.connect();
-    const index = new Index(client, client.db(cfg.database), rpc.rpc, settings.coin.name);
+    const database = client.db(cfg.database);
+    await networkProfile.verify({database, rpc: rpc.rpc});
+    const index = new Index(client, database, rpc.rpc, settings.coin.name);
     const state = await index.sync(rpc.pools, () => stopped);
     console.log(`Indexed ${state.chain} block ${state.height} (${state.hash})`);
   } finally { await client.close(); }

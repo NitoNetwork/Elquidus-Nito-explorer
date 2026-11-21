@@ -5,7 +5,10 @@ html(lang='en')
     meta(name='viewport' content='width=device-width, initial-scale=1')
     meta(http-equiv='Content-Language', content='en')
     meta(name='version', content=settings.explorer_version + (settings.revision == null || settings.revision == '' ? '' : `-${settings.revision}`))
-    title=(page_title_prefix == null || page_title_prefix == '' ? settings.localization.error_title.replace('{1}', settings.coin.name) : page_title_prefix) + ' - ' + settings.shared_pages.page_title
+    - var browserNetworkSuffix = settings.network != null && settings.network.id != null && settings.network.id.toString().toLowerCase() !== 'mainnet' ? ' [' + settings.network.label + ']' : ''
+    title=(page_title_prefix == null || page_title_prefix == '' ? settings.localization.error_title.replace('{1}', settings.coin.name) : page_title_prefix) + ' - ' + settings.shared_pages.page_title + browserNetworkSuffix
+    if settings.network != null && settings.network.robots_noindex == true
+      meta(name='robots', content='noindex,nofollow,noarchive')
     if settings.shared_pages.favicons.favicon32 != ''
       link(rel='icon', href='/' + settings.shared_pages.favicons.favicon32, sizes='32x32')
     if settings.shared_pages.favicons.favicon128 != ''
@@ -1427,6 +1430,8 @@ html(lang='en')
         - bodyContainerClasses.push('marginTop80');
       else
         - bodyContainerClasses.push('marginTop20');
+    if settings.network != null && settings.network.id != null && settings.network.id.toString().toLowerCase() == 'testnet'
+      - bodyClasses.push('network-testnet');
   body(class=bodyClasses)
     - var headerClasses = [];
     - var footerClasses = ['nav','navbar','navbar-default','d-flex','footer'];
@@ -1557,6 +1562,7 @@ html(lang='en')
               span#search-header-span(alt='Search', title='Search', data-bs-toggle='tooltip', data-bs-placement='left')
                 button#search-header-button(data-bs-toggle='collapse', data-bs-target='#search-navbar-collapse')
                   span.fa-solid.fa-magnifying-glass
+            include ./includes/network_switch.pug
         if settings.shared_pages.page_header.search.enabled == true && settings.shared_pages.page_header.search.position.toString().toLowerCase() == 'inside-header'
           div#search-navbar-collapse.collapse
             div.navbar-nav.align-items-lg-center.search-box-custom(style='width:100%;')
@@ -1581,6 +1587,7 @@ html(lang='en')
               span#search-header-span(alt='Search', title='Search', data-bs-toggle='tooltip', data-bs-placement='left')
                 button#search-header-button(data-bs-toggle='collapse', data-bs-target='#search-navbar-collapse')
                   span.fa-solid.fa-magnifying-glass
+            include ./includes/network_switch.pug
         if settings.shared_pages.page_header.search.enabled == true && settings.shared_pages.page_header.search.position.toString().toLowerCase() == 'inside-header'
           div#search-navbar-collapse.collapse.flexGrow1
             div.navbar-nav.align-items-lg-center.search-box-custom(style='width:100%;')

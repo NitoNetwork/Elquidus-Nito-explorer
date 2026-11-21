@@ -9,6 +9,7 @@ const {execFile} = require('node:child_process');
 const {promisify} = require('node:util');
 const execute = promisify(execFile);
 const supervisor = require('../lib/supervisor');
+const instanceRuntime = require('../lib/instance-runtime');
 const {options} = require('../scripts/prestart');
 const root = path.resolve(__dirname, '..');
 
@@ -24,6 +25,23 @@ test('startup requires the patched LTS and rejects unsupported operating modes b
   assert.throws(() => options(['pm2', 'production;echo']), /Usage/);
 });
 
+test('a suffixed checkout uses an isolated PM2 home even when the inherited environment points elsewhere', async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'nito-instance-'));
+  t.after(() => fs.rm(directory, {recursive: true, force: true}));
+  await fs.writeFile(path.join(directory, '.nito-instance'), 'testnet\n');
+  const environment = {PM2_HOME: '/mainnet/pm2'};
+  assert.equal(instanceRuntime.configurePm2Home(environment, directory), path.join(directory, 'tmp', 'pm2-testnet'));
+  assert.equal(environment.PM2_HOME, path.join(directory, 'tmp', 'pm2-testnet'));
+  await fs.writeFile(path.join(directory, '.nito-instance'), '../mainnet\n');
+  assert.throws(() => instanceRuntime.configurePm2Home(environment, directory), /lowercase identifier/);
+});
+
+test('settings loading contains a fail-closed marker guard for non-default instances', () => {
+  const source = require('node:fs').readFileSync(path.join(root, 'lib', 'settings.js'), 'utf8');
+  assert.match(source, /Refusing to use defaults for the \$\{instance_marker\} instance/);
+  assert.match(source, /network\.process_suffix does not match/);
+});
+
 test('PM2 supervises one web cluster and exactly one peer collector', () => {
   const apps = require('../ecosystem.config').apps;
   assert.equal(apps.length, 2);
@@ -34,6 +52,25 @@ test('PM2 supervises one web cluster and exactly one peer collector', () => {
   assert.equal(apps[1].instances, 1);
   assert.equal(apps[1].kill_timeout, 15000);
   assert.match(apps[1].script, /peer_sync_loop\.js$/);
+});
+
+test('PM2 keeps historical mainnet names and isolates an opt-in testnet indexer', () => {
+  const {buildApps} = require('../ecosystem.config');
+  assert.deepEqual(buildApps({}).map(app => app.name), ['explorer', 'explorer-peers']);
+  const apps = buildApps({NITO_INSTANCE_ID: 'testnet', NITO_SETTINGS_PATH: '/srv/nito/settings.testnet.json',
+    NITO_WEB_INSTANCES: '1', NITO_SUPERVISE_INDEXER: '1'}, {process_suffix: 'testnet', web_instances: 1, supervise_indexer: true}, 'testnet');
+  assert.deepEqual(apps.map(app => app.name), ['explorer-testnet', 'explorer-testnet-peers', 'explorer-testnet-indexer']);
+  assert.equal(apps[0].instances, 1);
+  assert.equal(apps[0].env_production.NITO_SETTINGS_PATH, '/srv/nito/settings.testnet.json');
+  assert.equal(apps[2].exec_mode, 'fork');
+  assert.match(apps[2].script, /index_sync_loop\.js$/);
+  assert.throws(() => buildApps({NITO_INSTANCE_ID: '../test'}, {process_suffix: 'testnet'}, 'testnet'), /lowercase identifier/);
+  assert.throws(() => buildApps({NITO_INSTANCE_ID: 'testnet'}, {process_suffix: ''}, 'testnet'), /does not match/);
+  assert.throws(() => buildApps({}, {process_suffix: ''}, 'testnet'), /Instance marker testnet does not match/);
+  assert.throws(() => buildApps({NITO_SUPERVISE_INDEXER: 'yes'}, {process_suffix: 'testnet'}, 'testnet'), /must be 0 or 1/);
+  assert.deepEqual(buildApps({}, {process_suffix: 'testnet', web_instances: 1, supervise_indexer: true}, 'testnet').map(app => app.name),
+    ['explorer-testnet', 'explorer-testnet-peers', 'explorer-testnet-indexer']);
+  assert.throws(() => buildApps({NITO_WEB_INSTANCES: '0'}), /between 1 and 64/);
 });
 
 test('retired Forever and automatic updater commands fail without touching services', async () => {

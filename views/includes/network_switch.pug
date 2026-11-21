@@ -1,0 +1,17 @@
+- var configuredNetwork = settings.network == null ? null : settings.network
+- var configuredSwitch = configuredNetwork == null || configuredNetwork.switch == null ? null : configuredNetwork.switch
+- var switchEnabled = configuredSwitch != null && configuredSwitch.enabled == true
+- var isNonMainNetwork = configuredNetwork != null && configuredNetwork.id != null && configuredNetwork.id.toString().toLowerCase() !== 'mainnet'
+if configuredNetwork != null && (isNonMainNetwork || switchEnabled)
+  - var currentNetworkLabel = configuredNetwork.label == null || configuredNetwork.label == '' ? configuredNetwork.id : configuredNetwork.label
+  - var targetNetworkLabel = configuredSwitch == null || configuredSwitch.label == null || configuredSwitch.label == '' ? '' : configuredSwitch.label
+  - var currentNetworkText = (settings.localization.network_current == null ? 'Current network: {1}' : settings.localization.network_current).replace('{1}', currentNetworkLabel)
+  if switchEnabled
+    - var switchNetworkText = (settings.localization.network_switch_to == null ? 'Switch to {1}' : settings.localization.network_switch_to).replace('{1}', targetNetworkLabel)
+    a.nito-network-control(href=configuredSwitch.url, aria-label=switchNetworkText, title=switchNetworkText)
+      span.nito-network-current=currentNetworkLabel
+      span.fa-solid.fa-right-left.nito-network-switch-icon(aria-hidden='true')
+      span.nito-network-target=targetNetworkLabel
+  else
+    span.nito-network-control.nito-network-control-static(role='status', aria-label=currentNetworkText)
+      span.nito-network-current=currentNetworkLabel

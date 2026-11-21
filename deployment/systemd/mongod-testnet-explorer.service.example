@@ -1,0 +1,21 @@
+[Unit]
+Description=MongoDB replica set for the NITO testnet explorer
+After=network.target
+
+[Service]
+Type=simple
+User=mongodb
+Group=mongodb
+ExecStart=/usr/bin/mongod --config /etc/mongod-testnet-explorer.conf
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=120
+LimitNOFILE=64000
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/mongodb-testnet-explorer /var/log/mongodb-testnet-explorer
+
+[Install]
+WantedBy=multi-user.target

@@ -36,8 +36,37 @@
     "password": "CHANGE_ME_PASSWORD"
   },
 
+  // network: fail-closed identity checks shared by the web, peer and block-index processes
+  "network": {
+    "id": "mainnet",
+    "label": "Mainnet",
+    "enforce": true,
+    "expected_chain": "main",
+    "expected_genesis": "00000000103d1acbedc9bb8ff2af8cb98a751965e784b4e1f978f3d5544c6c3c",
+    "public_url": "https://explorer.nito.network/",
+    "robots_noindex": false,
+    "allow_market_data": true,
+    "require_indexes": ["txindex", "coinstatsindex"],
+    "require_synced": true,
+    "private_activation_height": 1165432,
+    "require_private_active": false,
+    // Leave empty for the historical mainnet PM2 names: explorer and explorer-peers
+    "process_suffix": "",
+    // PM2 web worker count. Use 1 on a small side-by-side testnet host.
+    "web_instances": "max",
+    // Keep false on an installation whose block indexer is supervised elsewhere.
+    "supervise_indexer": false,
+    "switch": {
+      "enabled": true,
+      "url": "https://testnet-explorer.nito.network/",
+      "label": "Testnet"
+    }
+  },
+
   // webserver: a collection of settings that pertain to the node.js express web framework (read more: https://www.npmjs.com/package/express)
   "webserver": {
+    // bind: Address used by the Express listener. Use loopback when Nginx is the public entry point.
+    "bind": "127.0.0.1",
     // port: Port # to configure the express webserver to listen for http requests on
     //       NOTE: Be sure to configure firewalls to allow traffic through this port or the explorer website may not be accessible remotely
     "port": 3001,
