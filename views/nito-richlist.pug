@@ -41,6 +41,16 @@ block content
                         if category == 'balance'
                           td.text-end=stats.pools ? nitoMoney.percent(address.balance, stats.pools.transparent.chainValueNitoshi) || '—' : '—'
       .col-12.col-lg-4
+        if stats.pools && stats.pools.activated === true
+          - const poolRows = [[settings.localization.nito_supply_total, stats.pools.total.chainValue], [settings.localization.nito_supply_transparent, stats.pools.transparent.chainValue], [settings.localization.nito_supply_orchard, stats.pools.orchard.chainValue]]
+          .card.cardSpacer.nito-rich-pool-summary
+            .card-header=settings.localization.ex_supply + ' (' + settings.coin.symbol + ')'
+            .card-body.py-1
+              each poolRow in poolRows
+                .d-flex.justify-content-between.gap-2
+                  span=poolRow[0] + ':'
+                  - const poolValue = poolRow[1].replace(/\B(?=(\d{3})+(?!\d))/g, ',').replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
+                  strong.text-end.text-nowrap=poolValue
         .card.cardSpacer
           .card-header=settings.localization.rl_wealth + ' · ' + settings.localization.nito_supply_transparent
           .card-body

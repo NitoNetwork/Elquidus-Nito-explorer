@@ -512,6 +512,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal((await (await fetch(base + '/ext/getorchardpools')).json()).activated, true);
   const afterSummary = await (await fetch(base + '/ext/getsummary')).json();
   assert.equal(supplyView.rows(afterSummary, labels).length, 3);
+  assert.match(visibleText(await (await fetch(base + '/richlist')).text()), /Coin Supply.*Total.*Transparent.*Orchard/s);
   assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"/);
   assert.equal(process.pid, explorerProcessId, 'activation keeps the explorer process');
   assert.equal(httpServer.listening, true);
