@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const {spawnSync} = require('node:child_process');
 const generator = require('../scripts/create_testnet_settings');
 
 test('testnet settings are generated from the maintained template with strict network isolation', async t => {
@@ -43,6 +44,12 @@ test('testnet settings are generated from the maintained template with strict ne
   assert.equal(parsed.shared_pages.page_footer.bgcolor, 'success');
   assert.equal(parsed.shared_pages.page_header.panels.logo_panel.enabled, false);
   assert.equal(parsed.api_page.show_logo, false);
+  const loaded = spawnSync(process.execPath, ['-e', `require(${JSON.stringify(path.resolve(__dirname, '../lib/settings'))})`], {
+    encoding: 'utf8',
+    env: {...process.env, NITO_SETTINGS_PATH: output, NITO_INSTANCE_ID: 'testnet'}
+  });
+  assert.equal(loaded.status, 0, loaded.stdout + loaded.stderr);
+  assert.doesNotMatch(loaded.stdout + loaded.stderr, /Setting '.+' is missing/);
   assert.throws(() => generator.writeSettings(output, generated), /EEXIST/);
   generator.writeInstanceMarker(marker);
   assert.equal(await fs.readFile(marker, 'utf8'), 'testnet\n');
