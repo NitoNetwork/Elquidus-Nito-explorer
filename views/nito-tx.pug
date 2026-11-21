@@ -32,7 +32,6 @@ block content
       .card.cardSpacer
         .card-header: strong Orchard
         .card-body
-          p=settings.localization.nito_private_scope
           dl.row.mb-0
             dt.col-12.col-md-6=settings.localization.nito_actions
             dd.col-12.col-md-6=tx.orchard && tx.orchard.actions != null ? tx.orchard.actions : settings.localization.nito_unavailable

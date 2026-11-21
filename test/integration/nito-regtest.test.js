@@ -413,8 +413,8 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   }
   const networkPage = await fetch(base + '/network');
   assert.equal(networkPage.status, 200);
-  assert.match(await networkPage.text(), /Country is an approximate IP-based estimate/);
-  assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"/);
+  assert.doesNotMatch(await networkPage.text(), /Country is an approximate IP-based estimate/);
+  assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"[\s\S]*?href="\/ext\/getorchardpools"/);
   const priceState = require('../../lib/market-price-state');
   // The real MongoDB -> stats -> HTTP path must retain provider status everywhere.
   await db.collection('coinstats').updateOne({coin: 'Nito'}, {$set: {last_price: 0, last_usd_price: 0}});
@@ -522,7 +522,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     assert.match(richlistText, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.doesNotMatch(richlistText, /\.\d{1,7},\d{3}/, 'fractional digits must never contain grouping separators');
-  assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"/);
+  assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"[\s\S]*?href="\/ext\/getorchardpools"/);
   assert.equal(process.pid, explorerProcessId, 'activation keeps the explorer process');
   assert.equal(httpServer.listening, true);
   assert.equal(httpServer.address().port, uiPort, 'activation keeps the same HTTP listener');

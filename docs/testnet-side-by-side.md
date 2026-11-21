@@ -257,6 +257,7 @@ export NITO_SETTINGS_PATH=/etc/nito-explorer/testnet.json
 export NITO_INSTANCE_ID=testnet
 export NITO_WEB_INSTANCES=1
 export NITO_SUPERVISE_INDEXER=1
+export NITO_EXPLORER_REQUIRE_CLEAN_REVISION=1
 npm run start-pm2
 node scripts/pm2.js save
 node scripts/pm2.js status

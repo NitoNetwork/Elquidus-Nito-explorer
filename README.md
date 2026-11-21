@@ -116,9 +116,14 @@ and one supervised peer collector. No global PM2 installation or package downloa
 occurs during startup.
 
 ~~~bash
+export NITO_EXPLORER_REQUIRE_CLEAN_REVISION=1
 npm run start-pm2
 node scripts/pm2.js save
 ~~~
+
+The strict provenance guard is forwarded to every PM2 process. Startup fails if
+the checkout has modified or untracked files, so the footer revision identifies
+the code that is actually running.
 
 Use `npm run stop-pm2` and `npm run reload-pm2` for routine process management.
 For automatic recovery after an operating-system reboot, configure the PM2 startup
@@ -209,6 +214,17 @@ npm run reindex -- --isolated --source-db historical_copy --target-db rebuilt_co
 # Verify the retained database before switching the app/config/database back together:
 npm run rollback-index -- --isolated --source-db historical_copy --target-db rebuilt_copy
 ~~~
+
+On an advancing chain, the first full replay can finish behind Core before a
+same-tip pool snapshot is collected. In that case, rerun the same command with
+`--resume`; committed blocks are not replayed or double-counted. A completed
+manifest proves that its checkpoint is still canonical even if Core has advanced
+since that checkpoint. Resume starts from the saved manifest without delaying
+the replay for another preliminary source scan; it performs one full source
+inventory after replay and fails if the frozen source differs. Before cutover,
+run `npm run sync-blocks` against the rebuilt database and require `nito_state`,
+`coinstats.pools` and Core to identify the same chain, height and block hash.
+Repeat the catch-up if a block arrives during collection.
 
 `reindex-rich`, `reindex-txcount`, `reindex-last`, and
 `rebuild-transparent-address-index` accept the same arguments and perform the

@@ -231,6 +231,16 @@ complete sent/received history or correct old private pseudo-balances.
    none performs an in-place partial rewrite. Ordinary `sync-blocks` and
    `check-blocks` resume indexing and reconcile reorgs without reconstructing.
 
+   Core can advance while a long replay is running. If the replay reaches its
+   initial target after Core has moved and therefore cannot collect a same-tip
+   pool snapshot, rerun the command with `--resume`. Already committed blocks
+   remain the resume checkpoint and are not counted twice. A valid resume uses
+   the source inventory saved in its manifest and starts synchronization before
+   rescanning the frozen source. It performs one complete source inventory after
+   replay and fails if that inventory has changed. Target verification reads only
+   the `legacy_archive_*` collections that must match the source; it does not
+   rescan the reconstructed transaction, address and block collections.
+
    Transparent claims are validated against Core and copied to `claimaddresses`.
    Legacy `addresses.name` labels are imported only if no claim takes precedence.
    Private/invalid receivers are excluded from active claims. Other ancillary
@@ -239,9 +249,15 @@ complete sent/received history or correct old private pseudo-balances.
    current data: historical supply cannot be repaired by relabeling old values.
    Retain the source backup for all original fields and rejected labels. The
    reconstruction manifest records collection document counts, BSON-value hashes,
-   index definitions, preservation destinations and the new chain checkpoint.
+   index definitions, preservation destinations and the new chain checkpoint. A
+   completed manifest proves that this checkpoint is still on Core's canonical
+   chain. Core may legitimately have advanced beyond it while the frozen-source
+   inventory and archive checks complete.
 5. Compare sampled address balances against Core `scantxoutset` **as a one-off
-   operator validation**, not a web request. Check all three totals against a
+   operator validation**, not a web request. First run `npm run sync-blocks`
+   against the rebuilt target and verify that `nito_state`, `coinstats.pools` and
+   Core report the same chain, height and block hash. Repeat this catch-up if a
+   block arrives during collection. Then check all three totals against that
    same-tip `getorchardpools`, verify the network/genesis identity, test an orphan,
    restart the writer, and run it twice to check stable counts and balances.
 6. Compare representative pre-activation historical transactions and scripts,

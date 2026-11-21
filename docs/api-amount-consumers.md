@@ -54,7 +54,10 @@ missing operands return `null`, and callers must render an unavailable state.
 
 Hashrate and difficulty are nonmonetary estimates. They may be converted to
 finite numbers for charting and unit conversion; this exception does not apply
-to balances, supply, fees or pool values.
+to balances, supply, fees or pool values. The existing summary API keeps its
+configured hashrate source unit for compatibility. The interface converts that
+value and each chart series in base 1000, choosing one readable unit from H/s
+through EH/s without rewriting historical records.
 
 ## Checks
 

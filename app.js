@@ -9,12 +9,12 @@ var express = require('express'),
     routes = require('./routes/index'),
     lib = require('./lib/explorer'),
     db = require('./lib/database'),
-    package_metadata = require('./package.json');
+    package_metadata = require('./package.json'),
+    provenance = require('./lib/provenance').resolve({root: __dirname});
 var app = express();
 var apiAccessList = [];
 var viewPaths = [path.join(__dirname, 'views')]
 var pluginRoutes = [];
-const { exec } = require('child_process');
 
 // pass wallet rpc connection info to nodeapi
 nodeapi.setWalletDetails(settings.wallet);
@@ -925,6 +925,9 @@ settings.api_page.public_apis.rpc.getmasternodelist = { "enabled": false };
 
 // locals
 app.set('explorer_version', package_metadata.version);
+app.set('revision', provenance.shortRevision);
+app.set('revision_full', provenance.revision);
+app.set('explorer_source_url', provenance.sourceUrl);
 app.set('localization', settings.localization);
 app.set('coin', settings.coin);
 app.set('network', settings.network);
@@ -1043,14 +1046,5 @@ if (settings.webserver.tls.enabled == true) {
     console.warn('There was a problem reading tls certificates. Check that the certificate, chain and key paths are correct.');
   }
 }
-
-// get the latest git commit id (if exists)
-exec('git rev-parse HEAD', (err, stdout, stderr) => {
-  // check if the commit id was returned
-  if (stdout != null && stdout != '') {
-    // set the explorer revision code based on the git commit id
-    app.set('revision', stdout.substring(0, 7));
-  }
-});
 
 module.exports = app;

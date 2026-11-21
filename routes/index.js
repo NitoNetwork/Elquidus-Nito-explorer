@@ -362,7 +362,7 @@ router.get('/richlist', function(req, res) {
                 customHash: get_custom_hash(),
                 styleHash: get_style_hash(),
                 themeHash: get_theme_hash(),
-                page_title_prefix: 'Top ' + settings.coin.name + ' Coin Holders'
+                page_title_prefix: settings.localization.rl_title.replace('{1}', settings.coin.name)
               }
             );
           });

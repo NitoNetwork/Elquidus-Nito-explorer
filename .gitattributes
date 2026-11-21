@@ -8,3 +8,5 @@
 *.sh text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+public/vendor/fontawesome/css/all.min.css text eol=lf
+licenses/FONTAWESOME-FREE-6.7.2.txt text eol=lf

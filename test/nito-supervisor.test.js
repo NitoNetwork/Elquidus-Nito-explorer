@@ -58,10 +58,12 @@ test('PM2 keeps historical mainnet names and isolates an opt-in testnet indexer'
   const {buildApps} = require('../ecosystem.config');
   assert.deepEqual(buildApps({}).map(app => app.name), ['explorer', 'explorer-peers']);
   const apps = buildApps({NITO_INSTANCE_ID: 'testnet', NITO_SETTINGS_PATH: '/srv/nito/settings.testnet.json',
+    NITO_EXPLORER_REQUIRE_CLEAN_REVISION: '1',
     NITO_WEB_INSTANCES: '1', NITO_SUPERVISE_INDEXER: '1'}, {process_suffix: 'testnet', web_instances: 1, supervise_indexer: true}, 'testnet');
   assert.deepEqual(apps.map(app => app.name), ['explorer-testnet', 'explorer-testnet-peers', 'explorer-testnet-indexer']);
   assert.equal(apps[0].instances, 1);
   assert.equal(apps[0].env_production.NITO_SETTINGS_PATH, '/srv/nito/settings.testnet.json');
+  assert.equal(apps[0].env_production.NITO_EXPLORER_REQUIRE_CLEAN_REVISION, '1');
   assert.equal(apps[2].exec_mode, 'fork');
   assert.match(apps[2].script, /index_sync_loop\.js$/);
   assert.throws(() => buildApps({NITO_INSTANCE_ID: '../test'}, {process_suffix: 'testnet'}, 'testnet'), /lowercase identifier/);

@@ -4,6 +4,7 @@ After=network.target mongod-testnet-explorer.service nitocoin-testnet.service
 Wants=mongod-testnet-explorer.service nitocoin-testnet.service
 
 [Service]
+Environment=NITO_EXPLORER_REQUIRE_CLEAN_REVISION=1
 Type=forking
 User=CHANGE_ME_EXPLORER_USER
 Environment=PATH=/opt/nito-explorer-runtime/node-v24.22.3-linux-x64/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

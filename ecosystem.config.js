@@ -20,7 +20,8 @@ function webInstances(value) {
 
 function forwardedEnvironment(environment) {
   const forwarded = {};
-  for (const name of ['NITO_SETTINGS_PATH', 'NITO_INSTANCE_ID', 'NITO_INDEX_SYNC_INTERVAL', 'NITO_INDEX_SYNC_ERROR_INTERVAL']) {
+  for (const name of ['NITO_SETTINGS_PATH', 'NITO_INSTANCE_ID', 'NITO_INDEX_SYNC_INTERVAL', 'NITO_INDEX_SYNC_ERROR_INTERVAL',
+    'NITO_EXPLORER_REQUIRE_CLEAN_REVISION', 'NITO_EXPLORER_REVISION']) {
     if (environment[name] != null && environment[name] !== '') forwarded[name] = String(environment[name]);
   }
   return forwarded;

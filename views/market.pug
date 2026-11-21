@@ -412,7 +412,6 @@ block content
                     img.align-top.market-logo(src='data:image/png;base64,' + marketdata.market_logo, title=marketdata.market_name + ' Logo', alt=marketdata.market_name + ' Logo')
                   strong #{marketdata.market_name} - #{marketdata.coin}/#{marketdata.exchange} - #{settings.localization.mkt_hours}
                 .card-body
-                  p.small.text-muted=settings.localization.mkt_approximate_chart
                   canvas#chart(style='height:300px;')
         .row
           .col-md-6.col-xs-12.cardSpacer

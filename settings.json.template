@@ -227,13 +227,9 @@
           //          getnetworkhashps: retrieved from getnetworkhashps rpc cmd
           //          netmhashps: retrieved from getmininginfo rpc cmd
           "nethash": "getnetworkhashps",
-          // nethash_units: Determine which units should be used to display the network hashrate. Valid options:
-          //                P: Display value in petahashes (PH/s)
-          //                T: Display value in terahashes (TH/s)
-          //                G: Display value in gigahashes (GH/s)
-          //                M: Display value in megahashes (MH/s)
-          //                K: Display value in kilohashes (KH/s)
-          //                H: Display value in hashes (H/s)
+          // nethash_units: Source unit used by stored history and the legacy summary API. The interface
+          //                scales this value automatically in base 1000 from H/s through EH/s.
+          //                Valid source units: P, T, G, M, K or H.
           "nethash_units": "P"
         },
         // difficulty_panel: a collection of settings that pertain to the difficulty panel which displays the current proof-of-work difficulty (only applicable to POW coins)
@@ -581,9 +577,9 @@
       "social_link_percent_height_tablet": 84,
       // social_link_percent_height_mobile: Forced social link height percentage value for mobile screens
       "social_link_percent_height_mobile": 80,
-      // powered_by_text: Customize the "powered by" text in the center of the footer with some custom html
-      //                  NOTE: Add the keyword {explorer_version} to display the current version number of the explorer
-      "powered_by_text": "<a class='nav-link poweredby' href='https://github.com/team-exor/eiquidus' target='_blank'>eIquidus v{explorer_version}</a>"
+      // powered_by_text is retained for settings compatibility. The official
+      // source-provenance link is rendered from the verified running revision.
+      "powered_by_text": "NITO Explorer v{explorer_version}"
     }
   },
 

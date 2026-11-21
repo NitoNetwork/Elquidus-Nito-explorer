@@ -1,16 +1,6 @@
 extends layout
 
 block content
-  .alert.alert-info
-    p=settings.localization.nito_pool_scope
-    p=settings.localization.nito_api_amounts
-    if pools && pools.status === 'available' && pools.activated === true
-      #nito-pool-api-documentation
-        p
-          a(href='/ext/getorchardpools') /ext/getorchardpools
-          |  — #{settings.localization.nito_api_pools}
-        p=settings.localization.nito_api_private
-        p=settings.localization.nito_private_address
   script.
     $(document).ready(function() {
       if (#{settings.shared_pages.page_header.page_title_image.enable_animation} == true && #{settings.api_page.page_header.show_img} == true)
@@ -183,6 +173,11 @@ block content
                   div
                     em Returns confirmed accounted chain value, including immature rewards, as an exact decimal string
                   a(href='/ext/getmoneysupply') #{address}/ext/getmoneysupply
+              if pools && pools.status === 'available' && pools.activated === true
+                li#nito-pool-api-documentation
+                  p
+                    div.fw-bold getorchardpools
+                    a(href='/ext/getorchardpools') #{address}/ext/getorchardpools
             if settings.api_page.public_apis.ext.getdistribution.enabled == true
               li
                 p
