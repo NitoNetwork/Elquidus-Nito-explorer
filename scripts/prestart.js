@@ -25,7 +25,7 @@ function main() {
     const mongoose = require('mongoose');
     db.connect(null, async () => {
       try {
-        await networkProfile.verify({database: mongoose.connection.db});
+        await networkProfile.verify({database: mongoose.connection.db, initializeState: true});
         db.initialize_data_startup(() => {
           try {
             if (config.mode === 'pm2')

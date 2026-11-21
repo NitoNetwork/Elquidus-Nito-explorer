@@ -12,9 +12,16 @@ const base = {
 };
 
 function database(state = {_id: 'NITO', schema_version: 2, chain: 'test', genesis}, populated) {
+  let currentState = state;
   return {
     command: async () => ({setName: 'rs0'}),
-    collection: name => ({findOne: async () => name === 'nito_state' ? state : populated === name ? {_id: 1} : null})
+    collection: name => ({
+      findOne: async () => name === 'nito_state' ? currentState : populated === name ? {_id: 1} : null,
+      updateOne: async (_filter, update) => {
+        if (name === 'nito_state' && !currentState) currentState = update.$setOnInsert;
+        return {acknowledged: true};
+      }
+    })
   };
 }
 
@@ -44,6 +51,9 @@ test('enforced profile verifies Core, required indexes, replica set and Mongo id
   assert.equal(result.status, 'verified');
   assert.equal(result.chain, 'test');
   assert.equal(result.genesis, genesis);
+  const initialized = await profile.verify({profile: base, environment: {NITO_INSTANCE_ID: 'testnet'},
+    database: database(null), rpc: rpc(), coin: 'NITO', initializeState: true});
+  assert.deepEqual(initialized.state, {_id: 'NITO', schema_version: 2, chain: 'test', genesis, height: 0, hash: genesis});
 });
 
 test('enforced profile fails closed on network, activation, index and database mismatches', async () => {
