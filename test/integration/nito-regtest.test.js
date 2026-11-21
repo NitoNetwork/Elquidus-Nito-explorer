@@ -509,10 +509,19 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await rpc('reconsiderblock', [activationHash]);
   await until(async () => (await collect()).status === 'available');
   await index.sync(collect);
-  assert.equal((await (await fetch(base + '/ext/getorchardpools')).json()).activated, true);
+  const reactivatedPools = await (await fetch(base + '/ext/getorchardpools')).json();
+  assert.equal(reactivatedPools.activated, true);
   const afterSummary = await (await fetch(base + '/ext/getsummary')).json();
   assert.equal(supplyView.rows(afterSummary, labels).length, 3);
-  assert.match(visibleText(await (await fetch(base + '/richlist')).text()), /Coin Supply.*Total.*Transparent.*Orchard/s);
+  const richlistText = visibleText(await (await fetch(base + '/richlist')).text());
+  assert.match(richlistText, /Coin Supply.*Total.*Transparent.*Orchard/s);
+  for (const pool of ['total', 'transparent', 'orchard']) {
+    const expected = reactivatedPools[pool].chainValue
+      .replace(/\B(?=(\d{3})+\.)/g, ',')
+      .replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+    assert.match(richlistText, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.doesNotMatch(richlistText, /\.\d{1,7},\d{3}/, 'fractional digits must never contain grouping separators');
   assert.match(await (await fetch(base + '/info')).text(), /id="nito-pool-api-documentation"/);
   assert.equal(process.pid, explorerProcessId, 'activation keeps the explorer process');
   assert.equal(httpServer.listening, true);

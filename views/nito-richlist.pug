@@ -49,7 +49,7 @@ block content
               each poolRow in poolRows
                 .d-flex.justify-content-between.gap-2
                   span=poolRow[0] + ':'
-                  - const poolValue = poolRow[1].replace(/\B(?=(\d{3})+(?!\d))/g, ',').replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
+                  - const poolValue = poolRow[1].replace(/\B(?=(\d{3})+\.)/g, ',').replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
                   strong.text-end.text-nowrap=poolValue
         .card.cardSpacer
           .card-header=settings.localization.rl_wealth + ' · ' + settings.localization.nito_supply_transparent
