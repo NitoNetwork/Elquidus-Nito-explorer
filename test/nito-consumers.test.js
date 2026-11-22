@@ -72,6 +72,8 @@ test('nonmonetary hashrate lexemes remain usable in every display unit', () => {
     context.settings.shared_pages.page_header.panels.network_panel.nethash_units = unit;
     assert.match(context.convertHashUnits(value), /^1\.000[01]$/);
   }
+  context.settings.shared_pages.page_header.panels.network_panel.nethash_units = 'P';
+  assert.equal(context.convertHashUnits('1100.040564404735'), '0.0000000000011000');
 });
 
 test('legacy masternode monetary endpoints fail explicitly instead of rounding or inventing rewards', async t => {
