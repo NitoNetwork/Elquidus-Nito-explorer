@@ -52,9 +52,10 @@
     if (entry == null || typeof entry !== 'object')
       return null;
 
-    const canonicalValue = Number(entry.nethash_hps);
+    const canonicalValue = entry.nethash_hps == null || entry.nethash_hps === ''
+      ? null : Number(entry.nethash_hps);
 
-    if (Number.isFinite(canonicalValue) && canonicalValue >= 0)
+    if (canonicalValue != null && Number.isFinite(canonicalValue) && canonicalValue >= 0)
       return canonicalValue;
 
     return toHashesPerSecond(entry.nethash, entry.nethash_unit || fallbackSourceUnit);

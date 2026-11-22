@@ -42,6 +42,9 @@ test('chart history remains coherent when stored display units changed', () => {
     hashrate.historyHashesPerSecond({nethash: 0.1425, nethash_hps: 142500000000000, nethash_unit: 'P'}, 'P')
   ];
 
+  assert.equal(hashrate.historyHashesPerSecond({nethash: 0.1425, nethash_hps: null, nethash_unit: 'P'}, 'H'),
+    142500000000000);
+
   assert.deepEqual(hashrate.scaleSeries(values, 'H'), {
     values: [390.442176920939, 142.5],
     unitKey: 'T',
