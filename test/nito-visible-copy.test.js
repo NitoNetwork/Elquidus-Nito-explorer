@@ -71,4 +71,19 @@ test('transaction copy distinguishes Orchard bundle data from coinbase presentat
   assert.match(transaction, /row\.addresses == 'coinbase'/);
   assert.match(transaction, /table-info/);
   assert.match(transaction, /new_coins/);
+  assert.match(transaction, /if tx\.privacy == 'orchard'[\s\S]*nito_privacy/);
+  assert.doesNotMatch(transaction, /tx\.privacy == 'transparent' \? settings\.localization\.nito_outputs/);
+});
+
+test('peer and footer labels distinguish active connections from 24-hour observations', () => {
+  const locale = JSON.parse(jsonminify(read('locale/en.json')));
+  const layout = read('views/layout.pug');
+
+  assert.equal(locale.net_connections, 'Peers (24h)');
+  assert.equal(locale.net_active_connection, 'active connection');
+  assert.equal(locale.net_active_connections, 'active connections');
+  assert.match(layout, /connectionCount === 1/);
+  assert.match(layout, /boundedSocialLinkHeight/);
+  assert.match(layout, /getBoundingClientRect\(\)\.height/);
+  assert.doesNotMatch(layout, /\$\('#footer-container'\)\.height\(\) \* \(socialLinkHeight/);
 });

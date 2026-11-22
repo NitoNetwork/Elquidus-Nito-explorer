@@ -43,10 +43,11 @@ test('archive provenance accepts only an explicit full revision and otherwise us
 
 test('footer renders escaped official source provenance without configured HTML', () => {
   const html = pug.renderFile(path.join(root, 'views', 'includes', 'provenance.pug'), {settings: {
-    explorer_version: '1.102.0', revision: 'aaaaaaa', explorer_source_url: provenance.REPOSITORY_URL + '/tree/' + full
+    explorer_repository_url: provenance.REPOSITORY_URL
   }});
-  assert.match(html, /NITO Explorer v1\.102\.0-aaaaaaa/);
-  assert.match(html, new RegExp(`href="${provenance.REPOSITORY_URL}/tree/${full}"`));
+  assert.match(html, />Elquidus-Nito-explorer</);
+  assert.match(html, new RegExp(`href="${provenance.REPOSITORY_URL}"`));
+  assert.doesNotMatch(html, /\/tree\//);
   assert.match(html, /rel="noopener noreferrer"/);
   assert.doesNotMatch(html, /team-exor|!\{|script/i);
 });

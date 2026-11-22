@@ -927,6 +927,7 @@ settings.api_page.public_apis.rpc.getmasternodelist = { "enabled": false };
 app.set('explorer_version', package_metadata.version);
 app.set('revision', provenance.shortRevision);
 app.set('revision_full', provenance.revision);
+app.set('explorer_repository_url', provenance.repositoryUrl);
 app.set('explorer_source_url', provenance.sourceUrl);
 app.set('localization', settings.localization);
 app.set('coin', settings.coin);

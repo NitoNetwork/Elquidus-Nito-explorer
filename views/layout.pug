@@ -243,8 +243,11 @@ html(lang='en')
             fixSidebarHeight();
         }
 
-        // fix social link font size
-        const fontSize = $('#footer-container').height() * (socialLinkHeight / 100);
+        // Keep configured social icons inside the footer even when an old settings file exceeds 100%.
+        const footerElement = document.getElementById('footer-container');
+        const footerHeight = footerElement == null ? 0 : footerElement.getBoundingClientRect().height;
+        const boundedSocialLinkHeight = Math.max(1, Math.min(Number(socialLinkHeight) || 1, 100));
+        const fontSize = Math.max(16, Math.min(footerHeight - 12, Math.floor(footerHeight * (boundedSocialLinkHeight / 100))));
         $('#footer-container .social-link').css('font-size', fontSize);
         $('#footer-container .social-link > img').css('width', fontSize + 'px').css('height', fontSize + 'px');
       }
@@ -292,7 +295,11 @@ html(lang='en')
         };
 
         $.ajax({url: '/ext/getsummary', headers: summary_headers, cache: false, success: function(json) {
-          $("#lblConnections").text(json.connections + ' connections');
+          const connectionCount = Number(json.connections);
+          const connectionLabel = connectionCount === 1
+            ? !{JSON.stringify(settings.localization.net_active_connection)}
+            : !{JSON.stringify(settings.localization.net_active_connections)};
+          $("#lblConnections").text(json.connections + ' ' + connectionLabel);
           $("#lblBlockcount").text(json.blockcount + ' blocks');
         }});
       }
@@ -1752,6 +1759,6 @@ html(lang='en')
             p
               include ./includes/provenance.pug
       .col-4.navbar-nav
-        ui.nav.justify-content-end
+        ul.nav.justify-content-end
           label#lblBlockcount.badge.nav-link.border-0.float-end
           label#lblConnections.badge.nav-link.border-0.float-end

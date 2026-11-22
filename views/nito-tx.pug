@@ -26,8 +26,9 @@ block content
           dd.col-6.col-md-9=tx.timestamp == null ? settings.localization.nito_unavailable : new Date(tx.timestamp * 1000).toISOString()
           dt.col-6.col-md-3=settings.localization.nito_fee
           dd.col-6.col-md-9=tx.coinbase ? '—' : tx.fee_nitoshi == null ? settings.localization.nito_unavailable : nitoMoney.coins(tx.fee_nitoshi) + ' ' + settings.coin.symbol
-          dt.col-6.col-md-3=settings.localization.nito_privacy
-          dd.col-6.col-md-9=tx.privacy == 'orchard' ? 'Orchard' : tx.privacy == 'transparent' ? settings.localization.nito_outputs : settings.localization.nito_unavailable
+          if tx.privacy == 'orchard'
+            dt.col-6.col-md-3=settings.localization.nito_privacy
+            dd.col-6.col-md-9 Orchard
     if tx.privacy == 'orchard'
       .card.cardSpacer
         .card-header: strong Orchard
