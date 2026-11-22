@@ -36,6 +36,19 @@ test('chart series uses one coherent adaptive unit selected from its peak', () =
   });
 });
 
+test('chart history remains coherent when stored display units changed', () => {
+  const values = [
+    hashrate.historyHashesPerSecond({nethash: 390442176920939.4, nethash_unit: 'H'}, 'P'),
+    hashrate.historyHashesPerSecond({nethash: 0.1425, nethash_hps: 142500000000000, nethash_unit: 'P'}, 'P')
+  ];
+
+  assert.deepEqual(hashrate.scaleSeries(values, 'H'), {
+    values: [390.442176920939, 142.5],
+    unitKey: 'T',
+    unit: 'TH/s'
+  });
+});
+
 test('invalid or unavailable hashrate remains unavailable', () => {
   for (const value of [null, '', 'not-a-number', '-1', 'Infinity'])
     assert.equal(hashrate.scale(value, 'P'), null);
@@ -46,6 +59,7 @@ test('UI adapts the API value without changing the legacy API field contract', (
   const layout = fs.readFileSync(path.join(__dirname, '..', 'views', 'layout.pug'), 'utf8');
 
   assert.match(layout, /NitoHashrate\.scale\(json\.hashrate, networkHashSourceUnit\)/);
-  assert.match(layout, /NitoHashrate\.scaleSeries\(sourceChartData\.map/);
+  assert.match(layout, /NitoHashrate\.historyHashesPerSecond\(entry, networkHashSourceUnit\)/);
+  assert.match(layout, /NitoHashrate\.scaleSeries\(chartNethashHps, 'H'\)/);
   assert.doesNotMatch(layout, /json\.hashrate\s*=/);
 });

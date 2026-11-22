@@ -805,7 +805,12 @@ html(lang='en')
             timeData = populateHourChartData(result);
 
           const sourceChartData = (maxSavedRecords == 0 ? timeData.hourData : result);
-          const scaledNethash = NitoHashrate.scaleSeries(sourceChartData.map(function(entry) { return entry.nethash; }), networkHashSourceUnit);
+          // The V4 store preserves canonical H/s alongside the display-unit field. Use the
+          // canonical value so a settings unit change cannot make historical points incomparable.
+          const chartNethashHps = sourceChartData.map(function(entry) {
+            return NitoHashrate.historyHashesPerSecond(entry, networkHashSourceUnit);
+          });
+          const scaledNethash = NitoHashrate.scaleSeries(chartNethashHps, 'H');
           const chartData = sourceChartData.map(function(entry, index) {
             return { ...entry, nethash: scaledNethash.values[index] };
           });

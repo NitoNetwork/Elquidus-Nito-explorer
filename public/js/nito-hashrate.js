@@ -48,6 +48,18 @@
     return Number.isFinite(hashesPerSecond) ? hashesPerSecond : null;
   }
 
+  function historyHashesPerSecond(entry, fallbackSourceUnit) {
+    if (entry == null || typeof entry !== 'object')
+      return null;
+
+    const canonicalValue = Number(entry.nethash_hps);
+
+    if (Number.isFinite(canonicalValue) && canonicalValue >= 0)
+      return canonicalValue;
+
+    return toHashesPerSecond(entry.nethash, entry.nethash_unit || fallbackSourceUnit);
+  }
+
   function displayIndex(hashesPerSecond) {
     let index = 0;
 
@@ -101,6 +113,7 @@
   return Object.freeze({
     scale: scale,
     scaleSeries: scaleSeries,
-    toHashesPerSecond: toHashesPerSecond
+    toHashesPerSecond: toHashesPerSecond,
+    historyHashesPerSecond: historyHashesPerSecond
   });
 });
