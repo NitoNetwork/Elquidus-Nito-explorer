@@ -75,6 +75,20 @@ test('transaction copy distinguishes Orchard bundle data from coinbase presentat
   assert.doesNotMatch(transaction, /tx\.privacy == 'transparent' \? settings\.localization\.nito_outputs/);
 });
 
+test('transaction table headers use concise output labels without changing transaction detail copy', () => {
+  const locale = JSON.parse(jsonminify(read('locale/en.json')));
+
+  assert.equal(locale.nito_table_outputs, 'outputs');
+  assert.equal(locale.nito_table_output_value, 'output value');
+  assert.equal(locale.nito_outputs, 'Transparent outputs');
+
+  for (const view of ['views/index.pug', 'views/block.pug']) {
+    const source = read(view);
+    assert.match(source, /settings\.localization\.nito_table_outputs/);
+    assert.match(source, /settings\.localization\.nito_table_output_value/);
+  }
+});
+
 test('peer and footer labels distinguish active connections from 24-hour observations', () => {
   const locale = JSON.parse(jsonminify(read('locale/en.json')));
   const layout = read('views/layout.pug');

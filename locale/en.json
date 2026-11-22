@@ -19,6 +19,8 @@
   "nito_outputs": "Transparent outputs",
   "nito_inputs": "Transparent inputs",
   "nito_output_value": "Transparent output value",
+  "nito_table_outputs": "outputs",
+  "nito_table_output_value": "output value",
   "nito_privacy": "Privacy",
   "nito_no_outputs": "No transparent outputs",
   "nito_no_inputs": "No transparent inputs",
