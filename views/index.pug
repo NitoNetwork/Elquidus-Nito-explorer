@@ -65,6 +65,8 @@ block content
           var blockhash = data[1];
           var txhash = data[2];
           var outputs = data[3];
+          var paymentOutputs = data.find(function(v) { return typeof v === 'string' && v.indexOf('payment_outputs:') === 0; });
+          if (paymentOutputs) outputs = paymentOutputs.substring('payment_outputs:'.length);
           var amount = data[4] == null ? '#{settings.localization.nito_unavailable}' : String(data[4]);
           var amountParts = amount.split('.');
           var amount = amountParts.length < 2 ? amount : amountParts[0] + '.<span class="decimal">' + amountParts[1] + '</span>';

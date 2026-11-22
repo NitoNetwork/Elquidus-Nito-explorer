@@ -40,6 +40,37 @@ test('unshielding and a zero net mixed bundle retain exact fees', async () => {
   assert.equal((await txlib.normalize(orchard('1.00000001', [], [output('1.00000000')]), fail)).fee_nitoshi, '1');
   assert.equal((await txlib.normalize(orchard('0', [{prevout: output('2')}], [output('1.99999999')]), fail)).fee_nitoshi, '1');
 });
+
+test('Orchard pool movement is directional while the exact Core action count is preserved', async () => {
+  const entry = await txlib.normalize(orchard('-2.00000000', [{prevout: output('3.00000001')}], [output('1')]), fail);
+  assert.equal(entry.orchard.actions, 2);
+  assert.deepEqual(txlib.poolMovement(entry.orchard), {
+    direction: 'entry', amount_nitoshi: '200000000', pool_delta_nitoshi: '200000000'
+  });
+  assert.deepEqual(txlib.poolMovement({value_balance_nitoshi: '100000001'}), {
+    direction: 'exit', amount_nitoshi: '100000001', pool_delta_nitoshi: '-100000001'
+  });
+  assert.deepEqual(txlib.poolMovement({pool_delta_nitoshi: '0'}), {
+    direction: 'neutral', amount_nitoshi: '0', pool_delta_nitoshi: '0'
+  });
+  assert.equal(txlib.poolMovement({pool_delta_nitoshi: '1', value_balance_nitoshi: '1'}), null);
+});
+
+test('coinbase keeps raw nulldata while counting only transparent payment outputs', async () => {
+  const technical = {value: '0', n: 1, scriptPubKey: {type: 'nulldata', hex: '6a'}};
+  const tx = await txlib.normalize({txid: 'coinbase-test', vin: [{coinbase: '00'}],
+    vout: [output('512.00000000'), technical]}, fail);
+  assert.equal(tx.coinbase, true);
+  assert.equal(tx.vout.length, 2);
+  assert.equal(tx.vout[1].script_type, 'nulldata');
+  assert.equal(tx.payment_output_count, 1);
+  assert.equal(tx.vin[0].addresses, 'coinbase');
+  assert.equal(tx.vin[0].amount, '51200000000');
+
+  const publicTx = txlib.publicRecord(tx);
+  assert.equal(publicTx.vout.length, 2, 'raw API data retains the nulldata output');
+  assert.equal(publicTx.payment_output_count, 1);
+});
 test('maximum-range fees remain exact and contradictory RPC fees fail closed', async () => {
   const raw = orchard('0', [{prevout: output('1284565890.00000000')}], [output('1284565889.99999999')]);
   assert.equal((await txlib.normalize(raw, fail)).fee_nitoshi, '1');

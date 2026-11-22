@@ -3,7 +3,8 @@ var express = require('express'),
     settings = require('../lib/settings'),
     db = require('../lib/database'),
     lib = require('../lib/explorer'),
-    peerSync = require('../lib/peer-sync');
+    peerSync = require('../lib/peer-sync'),
+    nitoTransaction = require('../lib/nito-transaction');
 
 function send_block_data(res, block, txs, title_text, orphan) {
   res.render(
@@ -29,6 +30,7 @@ function send_tx_data(res, tx, blockcount, orphan) {
     {
       active: 'tx',
       tx: tx,
+      orchardMovement: nitoTransaction.poolMovement(tx.orchard),
       orphan: orphan,
       confirmations: settings.shared_pages.confirmations,
       blockcount: blockcount,
@@ -340,37 +342,36 @@ router.get('/markets/:market/:coin_symbol/:pair_symbol', function(req, res) {
 router.get('/richlist', function(req, res) {
   // ensure richlist page is enabled
   if (settings.richlist_page.enabled == true) {
-    db.get_stats(settings.coin.name, function (stats) {
-      db.get_richlist(settings.coin.name, function(richlist) {
-        if (richlist) {
-          db.get_distribution(richlist, stats, function(distribution) {
-            res.render(
-              'nito-richlist',
-              {
-                active: 'richlist',
-                balance: richlist.balance,
-                received: richlist.received,
-                burned: richlist.burned,
-                stats: stats || {},
-                dista: distribution.t_1_25,
-                distb: distribution.t_26_50,
-                distc: distribution.t_51_75,
-                distd: distribution.t_76_100,
-                diste: distribution.t_101plus,
-                last_updated: (settings.richlist_page.page_header.show_last_updated == true ? (stats && stats.richlist_last_updated) : null),
-                showSync: db.check_show_sync_message(),
-                customHash: get_custom_hash(),
-                styleHash: get_style_hash(),
-                themeHash: get_theme_hash(),
-                page_title_prefix: settings.localization.rl_title.replace('{1}', settings.coin.name)
-              }
-            );
-          });
-        } else {
-          // richlist data not found so default to the tx list page
-          route_get_txlist(res, null);
-        }
-      });
+    db.get_richlist_snapshot(settings.coin.name, function(snapshot) {
+      if (snapshot && snapshot.richlist) {
+        const richlist = snapshot.richlist;
+        const stats = snapshot.stats || {};
+        const distribution = snapshot.distribution;
+        res.render(
+          'nito-richlist',
+          {
+            active: 'richlist',
+            balance: richlist.balance,
+            received: richlist.received,
+            burned: richlist.burned,
+            stats: stats,
+            dista: distribution.t_1_25,
+            distb: distribution.t_26_50,
+            distc: distribution.t_51_75,
+            distd: distribution.t_76_100,
+            diste: distribution.t_101plus,
+            last_updated: (settings.richlist_page.page_header.show_last_updated == true ? stats.richlist_last_updated : null),
+            showSync: db.check_show_sync_message(),
+            customHash: get_custom_hash(),
+            styleHash: get_style_hash(),
+            themeHash: get_theme_hash(),
+            page_title_prefix: settings.localization.rl_title.replace('{1}', settings.coin.name)
+          }
+        );
+      } else {
+        // richlist data not found so default to the tx list page
+        route_get_txlist(res, null);
+      }
     });
   } else {
     // richlist page is not enabled so default to the tx list page

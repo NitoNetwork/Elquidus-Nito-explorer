@@ -1741,11 +1741,11 @@ html(lang='en')
           each social in settings.shared_pages.page_footer.social_links
             if social.enabled
               li.float-start
-                a.nav-link.social-link.border-0(href=social.url, target='_blank', alt=settings.coin.name + ' ' + social.tooltip_text, title=settings.coin.name + ' ' + social.tooltip_text, data-bs-toggle='tooltip', data-bs-placement='top')
+                a.nav-link.social-link.border-0(href=social.url, target='_blank', rel='noopener noreferrer', aria-label=settings.coin.name + ' ' + social.tooltip_text, title=settings.coin.name + ' ' + social.tooltip_text, data-bs-toggle='tooltip', data-bs-placement='top')
                   if social.fontawesome_class != null && social.fontawesome_class != ''
-                    span(class='vertical-align-middle ' + social.fontawesome_class)
+                    span(class='vertical-align-middle ' + social.fontawesome_class, aria-hidden='true')
                   else
-                    img(class='vertical-align-middle', src=social.image_path)
+                    img(class='vertical-align-middle', src=social.image_path, alt='')
       .col-4.navbar-nav
         ul.nav.justify-content-center
           li.text-center

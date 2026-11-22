@@ -7,6 +7,7 @@ const jsonminify = require('jsonminify');
 
 const TESTNET_GENESIS = '00000000ddbcc1487e98d0e27fcc235129c543e6b6066df0cc0d157a0e02312b';
 const TESTNET_LOGO = '/img/nito-testnet-page-title-green.png';
+const TESTNET_FAUCET = 'https://testnet-faucet.nito.tools/';
 
 function argumentsFrom(values) {
   let output = 'settings.testnet.json';
@@ -74,6 +75,10 @@ function testnetSettings(template) {
   settings.shared_pages.page_header.page_title_image.enable_animation = false;
   settings.shared_pages.page_header.bgcolor = 'success';
   settings.shared_pages.page_footer.bgcolor = 'success';
+  if (!settings.shared_pages.page_footer.social_links.some(link => link.url === TESTNET_FAUCET)) {
+    settings.shared_pages.page_footer.social_links.push({enabled: true, tooltip_text: 'Testnet Faucet',
+      url: TESTNET_FAUCET, fontawesome_class: 'fa-solid fa-faucet-drip', image_path: ''});
+  }
   for (const name of ['price_panel', 'usd_price_panel', 'market_cap_panel', 'usd_market_cap_panel']) {
     if (settings.shared_pages.page_header.panels[name]) settings.shared_pages.page_header.panels[name].enabled = false;
   }
@@ -129,5 +134,5 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = {TESTNET_GENESIS, TESTNET_LOGO, argumentsFrom, readTemplate, testnetSettings,
+module.exports = {TESTNET_GENESIS, TESTNET_LOGO, TESTNET_FAUCET, argumentsFrom, readTemplate, testnetSettings,
   validateInstanceMarker, writeInstanceMarker, writeSettings};

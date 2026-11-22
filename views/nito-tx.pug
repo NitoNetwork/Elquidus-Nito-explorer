@@ -35,14 +35,19 @@ block content
           dl.row.mb-0
             dt.col-12.col-md-6=settings.localization.nito_actions
             dd.col-12.col-md-6=tx.orchard && tx.orchard.actions != null ? tx.orchard.actions : settings.localization.nito_unavailable
-            dt.col-12.col-md-6=settings.localization.nito_balance
-            dd.col-12.col-md-6=tx.orchard && tx.orchard.value_balance_nitoshi != null ? nitoMoney.coins(tx.orchard.value_balance_nitoshi) + ' ' + settings.coin.symbol : settings.localization.nito_unavailable
+            if orchardMovement
+              dt.col-12.col-md-6=orchardMovement.direction == 'entry' ? settings.localization.nito_pool_entry : orchardMovement.direction == 'exit' ? settings.localization.nito_pool_exit : settings.localization.nito_pool_movement
+              dd.col-12.col-md-6=nitoMoney.coins(orchardMovement.amount_nitoshi) + ' ' + settings.coin.symbol
+            else
+              dt.col-12.col-md-6=settings.localization.nito_pool_movement
+              dd.col-12.col-md-6=settings.localization.nito_unavailable
     .row
       each rows, side in {vin: tx.vin, vout: tx.vout}
+        - var displayRows = side == 'vout' && tx.coinbase ? rows.filter(function(row) { return row.script_type != 'nulldata'; }) : rows
         .col-12.col-lg-6.cardSpacer
           .card
             .card-header: strong=side == 'vin' ? settings.localization.nito_inputs : settings.localization.nito_outputs
-            if rows.length == 0
+            if displayRows.length == 0
               .card-body=side == 'vin' ? settings.localization.nito_no_inputs : settings.localization.nito_no_outputs
             else
               .table-responsive
@@ -52,17 +57,19 @@ block content
                       th=settings.localization.tx_address
                       th.text-end=settings.coin.symbol
                   tbody
-                    each row in rows
-                      tr
-                        td.breakWord
-                          if row.addresses == 'coinbase'
-                            =settings.localization.new_coins
-                          else if row.addresses
-                            a(href='/address/' + row.addresses)=row.addresses
-                          else
-                            =row.script_type || settings.localization.nito_unavailable
-                            if row.script
-                              details
-                                summary Script
-                                code.breakWord=row.script
-                        td.text-end=row.amount == null ? settings.localization.nito_unavailable : nitoMoney.coins(row.amount)
+                    each row in displayRows
+                      if side == 'vin' && row.addresses == 'coinbase'
+                        tr.table-info
+                          td.text-center(colspan='2')=settings.localization.new_coins
+                      else
+                        tr
+                          td.breakWord
+                            if row.addresses
+                              a(href='/address/' + row.addresses)=row.addresses
+                            else
+                              =row.script_type || settings.localization.nito_unavailable
+                              if row.script
+                                details
+                                  summary Script
+                                  code.breakWord=row.script
+                          td.text-end=row.amount == null ? settings.localization.nito_unavailable : nitoMoney.coins(row.amount)

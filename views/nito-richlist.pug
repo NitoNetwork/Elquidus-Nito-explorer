@@ -68,7 +68,9 @@ block content
                           td.text-end.text-nowrap=nitoMoney.coins(topTotal).replace(/\B(?=(\d{3})+\.)/g, ',')
                           td.text-end=nitoMoney.percent(topTotal, stats.pools.transparent.chainValueNitoshi) || '—'
                       tr
-                        th(scope='row')=index < 4 ? (index * 25 + 1) + '–' + ((index + 1) * 25) : settings.localization.nito_other
+                        th(scope='row')
+                          span.wealth-dist-color-box.float-start(aria-hidden='true', style='background-color:' + settings.richlist_page.wealth_distribution.colors[index] + ';')
+                          span=index < 4 ? (index * 25 + 1) + '–' + ((index + 1) * 25) : settings.localization.rl_hundredplus
                         td.text-end.text-nowrap=group.total == null ? settings.localization.nito_unavailable : group.total.replace(/\B(?=(\d{3})+\.)/g, ',')
                         td.text-end=group.percent == null ? '—' : group.percent
                     tr
@@ -81,7 +83,7 @@ block content
                 $(function () {
                   if (typeof Chart === 'undefined') return;
                   const groups = !{JSON.stringify([dista, distb, distc, distd, diste])};
-                  const labels = !{JSON.stringify([settings.localization.rl_top25, settings.localization.rl_top50, settings.localization.rl_top75, settings.localization.rl_top100, settings.localization.nito_other])};
+                  const labels = !{JSON.stringify([settings.localization.rl_top25, settings.localization.rl_top50, settings.localization.rl_top75, settings.localization.rl_top100, settings.localization.rl_hundredplus])};
                   new Chart('pieChart', {type: 'pie', data: {labels, datasets: [{backgroundColor: !{JSON.stringify(settings.richlist_page.wealth_distribution.colors)}, data: groups.map(g => Number(g.percent))}]}, options: {
                     animation: !window.matchMedia('(prefers-reduced-motion: reduce)').matches,
                     plugins: {legend: {display: false}, tooltip: {callbacks: {label: c => labels[c.dataIndex] + ': ' + NitoAmount.format(groups[c.dataIndex].total) + ' (' + groups[c.dataIndex].percent + '%)'}}}

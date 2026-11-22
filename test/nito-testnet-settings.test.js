@@ -42,6 +42,10 @@ test('testnet settings are generated from the maintained template with strict ne
   assert.equal(parsed.shared_pages.page_header.page_title_image.image_path, generator.TESTNET_LOGO);
   assert.equal(parsed.shared_pages.page_header.bgcolor, 'success');
   assert.equal(parsed.shared_pages.page_footer.bgcolor, 'success');
+  const faucetLinks = parsed.shared_pages.page_footer.social_links.filter(link => link.url === generator.TESTNET_FAUCET);
+  assert.equal(faucetLinks.length, 1);
+  assert.equal(faucetLinks[0].fontawesome_class, 'fa-solid fa-faucet-drip');
+  assert.equal(generator.readTemplate().shared_pages.page_footer.social_links.some(link => link.url === generator.TESTNET_FAUCET), false);
   assert.equal(parsed.shared_pages.page_header.panels.logo_panel.enabled, false);
   assert.equal(parsed.api_page.show_logo, false);
   const loaded = spawnSync(process.execPath, ['-e', `require(${JSON.stringify(path.resolve(__dirname, '../lib/settings'))})`], {

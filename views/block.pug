@@ -131,7 +131,7 @@ block content
                     span.fa-regular.fa-eye(data-bs-toggle='tooltip', data-bs-placement='top', title=settings.localization.view_tx)
                 td.d-none.d-md-table-cell
                   a.breakWord(href='/tx/' + txn.txid + '?blockhash=' + block.hash) #{txn.txid}
-                td.text-center #{txn.vout.length}
+                td.text-center #{txn.payment_output_count}
                 td.text-center
                   =txn.total == null ? settings.localization.nito_unavailable : nitoMoney.coins(txn.total)
                   if txn.privacy != 'transparent'

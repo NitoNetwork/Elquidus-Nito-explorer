@@ -10,8 +10,11 @@
   "nito_orchard": "Orchard pool value",
   "nito_total": "Accounted chain value",
   "nito_incomplete": "Public transaction metadata is incomplete. Unavailable values are not zero.",
-  "nito_actions": "Orchard actions",
+  "nito_actions": "Orchard bundle actions",
   "nito_balance": "Net Orchard value balance",
+  "nito_pool_entry": "Net entry into the private Orchard pool",
+  "nito_pool_exit": "Net exit from the private Orchard pool",
+  "nito_pool_movement": "Net private Orchard pool movement",
   "nito_fee": "Known fee",
   "nito_outputs": "Transparent outputs",
   "nito_inputs": "Transparent inputs",
@@ -20,7 +23,7 @@
   "nito_no_outputs": "No transparent outputs",
   "nito_no_inputs": "No transparent inputs",
   "nito_orphan": "Orphaned transaction",
-  "nito_other": "101+ addresses and other scripts",
+  "nito_other": "101+",
 
   // global
   "difficulty": "Difficulty",

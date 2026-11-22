@@ -45,7 +45,8 @@ test('compact labels still identify the transparent rich-list scope', () => {
   assert.equal(locale.rl_current_balance, 'Top 100 · Transparent Balance');
   assert.equal(locale.rl_received_coins, 'Top 100 · Transparent Received');
   assert.equal(locale.nito_balance, 'Net Orchard value balance');
-  assert.equal(locale.nito_other, '101+ addresses and other scripts');
+  assert.equal(locale.nito_other, '101+');
+  assert.equal(locale.rl_hundredplus, '101+');
   assert.match(read('views/nito-richlist.pug'), /rl_wealth \+ ' · ' \+ settings\.localization\.nito_supply_transparent/);
 });
 
@@ -55,4 +56,19 @@ test('cleaned public templates compile and retain required unavailable states', 
 
   assert.match(read('views/nito-richlist.pug'), /nito_unavailable/);
   assert.match(read('views/nito-tx.pug'), /nito_incomplete/);
+});
+
+test('transaction copy distinguishes Orchard bundle data from coinbase presentation', () => {
+  const locale = JSON.parse(jsonminify(read('locale/en.json')));
+  const transaction = read('views/nito-tx.pug');
+
+  assert.equal(locale.nito_actions, 'Orchard bundle actions');
+  assert.match(locale.nito_pool_entry, /Net entry.*Orchard pool/i);
+  assert.match(locale.nito_pool_exit, /Net exit.*Orchard pool/i);
+  assert.match(transaction, /orchardMovement\.direction == 'entry'/);
+  assert.match(transaction, /orchardMovement\.direction == 'exit'/);
+  assert.match(transaction, /script_type\s*!=\s*'nulldata'/);
+  assert.match(transaction, /row\.addresses == 'coinbase'/);
+  assert.match(transaction, /table-info/);
+  assert.match(transaction, /new_coins/);
 });
