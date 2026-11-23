@@ -97,7 +97,7 @@ test('peer and footer labels distinguish active connections from 24-hour observa
   assert.equal(locale.net_active_connection, 'active connection');
   assert.equal(locale.net_active_connections, 'active connections');
   assert.match(layout, /connectionCount === 1/);
-  assert.match(layout, /boundedSocialLinkHeight/);
-  assert.match(layout, /getBoundingClientRect\(\)\.height/);
+  assert.match(layout, /footer\.style\.minHeight = height/);
+  assert.match(read('public/css/style.scss'), /clamp\(16px, var\(--footer-icon-size, 22px\), 24px\)/);
   assert.doesNotMatch(layout, /\$\('#footer-container'\)\.height\(\) \* \(socialLinkHeight/);
 });

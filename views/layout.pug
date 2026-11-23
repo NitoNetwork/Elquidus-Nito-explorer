@@ -196,6 +196,7 @@ html(lang='en')
       - showNetworkPanel = true
     script.
       const { OverlayScrollbars } = OverlayScrollbarsGlobal;
+      const footerProfiles = !{JSON.stringify(['mobile', 'tablet', 'desktop'].map(size => ({ height: settings.shared_pages.page_footer['footer_height_' + size], iconPercent: settings.shared_pages.page_footer['social_link_percent_height_' + size] })))};
       var isDocumentReady = false;
 
       /* special thanks to the stackoverflow community for the getParameterByName function: https://stackoverflow.com/a/901144/3038650 */
@@ -208,22 +209,14 @@ html(lang='en')
         return decodeURIComponent(results[2].replace(/\+/g, ' '));
       }
       function fixFooterHeightAndPosition() {
-        const screenWidth = $(window).outerWidth();
-        let socialLinkHeight = 70;
-
-        if (screenWidth <= 575) {
-          // mobile
-          $('#footer-container').css('height', '!{settings.shared_pages.page_footer.footer_height_mobile}');
-          socialLinkHeight = !{settings.shared_pages.page_footer.social_link_percent_height_mobile};
-        } else if (screenWidth >= 576 && screenWidth <= 991) {
-          // tablet
-          $('#footer-container').css('height', '!{settings.shared_pages.page_footer.footer_height_tablet}');
-          socialLinkHeight = !{settings.shared_pages.page_footer.social_link_percent_height_tablet};
-        } else {
-          // desktop
-          $('#footer-container').css('height', '!{settings.shared_pages.page_footer.footer_height_desktop}');
-          socialLinkHeight = !{settings.shared_pages.page_footer.social_link_percent_height_desktop};
-        }
+        const footer = document.getElementById('footer-container');
+        const size = window.matchMedia('(min-width: 992px)').matches ? 2
+          : window.matchMedia('(min-width: 576px)').matches ? 1 : 0;
+        const {height, iconPercent} = footerProfiles[size];
+        footer.style.minHeight = height;
+        const heightInPixels = /^\d+(?:\.\d+)?px$/.test(height) ? parseFloat(height) : 50;
+        const ratio = Math.max(1, Math.min(Number(iconPercent) || 1, 100)) / 100;
+        footer.style.setProperty('--footer-icon-size', (heightInPixels * ratio) + 'px');
 
         if (!#{settings.shared_pages.page_footer.sticky_footer}) {
           // wait a tick before fixing footer position to give time for elements to be rendered
@@ -242,14 +235,6 @@ html(lang='en')
           if ('#{settings.shared_pages.page_header.menu}' == 'side')
             fixSidebarHeight();
         }
-
-        // Keep configured social icons inside the footer even when an old settings file exceeds 100%.
-        const footerElement = document.getElementById('footer-container');
-        const footerHeight = footerElement == null ? 0 : footerElement.getBoundingClientRect().height;
-        const boundedSocialLinkHeight = Math.max(1, Math.min(Number(socialLinkHeight) || 1, 100));
-        const fontSize = Math.max(16, Math.min(footerHeight - 12, Math.floor(footerHeight * (boundedSocialLinkHeight / 100))));
-        $('#footer-container .social-link').css('font-size', fontSize);
-        $('#footer-container .social-link > img').css('width', fontSize + 'px').css('height', fontSize + 'px');
       }
       function enableTooltips() {
         if ($().tooltip) {
@@ -301,6 +286,7 @@ html(lang='en')
             : !{JSON.stringify(settings.localization.net_active_connections)};
           $("#lblConnections").text(json.connections + ' ' + connectionLabel);
           $("#lblBlockcount").text(json.blockcount + ' blocks');
+          fixFooterHeightAndPosition();
         }});
       }
       $(document).on('click', 'button.btn-close', function (e) {
@@ -1438,7 +1424,7 @@ html(lang='en')
       - bodyClasses.push('network-testnet');
   body(class=bodyClasses)
     - var headerClasses = [];
-    - var footerClasses = ['nav','navbar','navbar-default','d-flex','footer'];
+    - var footerClasses = ['navbar','navbar-default','footer'];
     - var dropdownClasses = ['dropdown-menu'];
     if settings.shared_pages.page_header.sticky_header == true
       - headerClasses.push('fixed-top');
@@ -1747,23 +1733,19 @@ html(lang='en')
                 .row.align-items-start
                   include ./includes/difficulty_chart.pug
           block content
-    div#footer-container(class=footerClasses, role='navigation')
-      .col-4.navbar-nav
-        ul.nav.justify-content-left
+    div#footer-container(class=footerClasses, role='contentinfo')
+      .footer-links.navbar-nav
+        ul.nav
           each social in settings.shared_pages.page_footer.social_links
             if social.enabled
-              li.float-start
+              li
                 a.nav-link.social-link.border-0(href=social.url, target='_blank', rel='noopener noreferrer', aria-label=settings.coin.name + ' ' + social.tooltip_text, title=settings.coin.name + ' ' + social.tooltip_text, data-bs-toggle='tooltip', data-bs-placement='top')
                   if social.fontawesome_class != null && social.fontawesome_class != ''
                     span(class='vertical-align-middle ' + social.fontawesome_class, aria-hidden='true')
                   else
                     img(class='vertical-align-middle', src=social.image_path, alt='')
-      .col-4.navbar-nav
-        ul.nav.justify-content-center
-          li.text-center
-            p
-              include ./includes/provenance.pug
-      .col-4.navbar-nav
-        ul.nav.justify-content-end
-          label#lblBlockcount.badge.nav-link.border-0.float-end
-          label#lblConnections.badge.nav-link.border-0.float-end
+      .footer-source.navbar-nav
+        include ./includes/provenance.pug
+      .footer-status
+        span#lblBlockcount.badge.nav-link
+        span#lblConnections.badge.nav-link
