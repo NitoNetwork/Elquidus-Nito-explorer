@@ -32,7 +32,16 @@ Out-of-range or malformed parameters return HTTP 400. The database reads for
 a page share a 2.5-second budget. A timeout returns HTTP 503 with no partial
 page. Use a cursor for deep sequential pagination to avoid scanning earlier
 pages. The explorer table uses a count maintained by the indexer for an
-unfiltered list and an indexed count for an amount-filtered list.
+unfiltered list. The indexer also keeps an exact total for the configured
+Movements threshold, updating or reverting both totals with the block.
+On first sync or after a threshold change, the indexer initializes the total
+from the existing indexed data at one checkpoint. Other filters and requests
+made before initialization use the indexed count.
+
+Address history starts from the stored balance and adjusts it for the
+requested position. The explorer table reuses address counts for the same
+indexed block, while public list responses only load the requested rows and
+their balances.
 
 For sequential reads, start with `GET /ext/getlasttxs/0?cursor=&limit=25`.
 This mode returns `{data, nextCursor}`. Pass the returned token as `cursor` on

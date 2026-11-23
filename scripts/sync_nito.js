@@ -20,7 +20,8 @@ async function main() {
     await networkProfile.verify({database, rpc: rpc.rpc});
     const index = new Index(client, database, rpc.rpc, settings.coin.name, {
       networkHashUnit: settings.shared_pages.page_header.panels.network_panel.nethash_units,
-      networkHistoryLimit: (settings.network_history && settings.network_history.max_saved_records) || 1440
+      networkHistoryLimit: (settings.network_history && settings.network_history.max_saved_records) || 1440,
+      movementMinimum: settings.movement_page.enabled ? settings.movement_page.movement_table.min_amount : null
     });
     const state = await index.sync(rpc.pools, () => stopped);
     console.log(`Indexed ${state.chain} block ${state.height} (${state.hash})`);

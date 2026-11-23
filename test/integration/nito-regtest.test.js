@@ -120,6 +120,18 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const db = conn.db(dbName);
   const index = new Index(conn, db, rpc);
   await index.sync(collect);
+  const movementIndexer = new Index(conn, db, rpc, 'Nito', {movementMinimum: '0.1'});
+  const {decimal} = require('../../lib/nito-index');
+  const {countAt} = require('../../lib/nito-movement-count');
+  const assertMovementCount = async (minimum = 10000000n) => {
+    const state = await index.state();
+    const exact = await db.collection('txes').countDocuments({schema_version: 2, total: {$gte: decimal(minimum)}});
+    assert.equal(countAt(state, minimum), exact);
+    return exact;
+  };
+  // Existing deployments bootstrap at their indexed tip, without replay.
+  await movementIndexer.refreshMovementCount();
+  assert.ok(await assertMovementCount() > 0);
   const firstCount = await db.collection('txes').countDocuments();
   const assertTransactionCount = async () => {
     const stats = await db.collection('coinstats').findOne({coin: 'Nito', schema_version: 2});
@@ -292,7 +304,12 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const startupBalances = await ranked(rebuiltDb);
   assert.match(await runOperation([], 'prestart.js'), /Database initialization complete/);
   for (let pass = 0; pass < 2; pass++) assert.match(await runOperation([], 'sync_nito.js'), /Indexed regtest block/);
-  assert.deepEqual(await rebuiltDb.collection('nito_state').findOne({_id: 'Nito'}), startupState);
+  const afterStartupState = await rebuiltDb.collection('nito_state').findOne({_id: 'Nito'});
+  const {movement_count: materializedMovement, ...checkpoint} = afterStartupState;
+  assert.deepEqual(checkpoint, startupState);
+  assert.equal(materializedMovement.hash, checkpoint.hash);
+  assert.equal(materializedMovement.count, await rebuiltDb.collection('txes').countDocuments(
+    {schema_version: 2, total: {$gte: decimal(materializedMovement.minimum)}}));
   const afterStartupStats = await rebuiltDb.collection('coinstats').findOne({coin: 'Nito'});
   for (const field of ['txes', 'last', 'count', 'schema_version', 'supply', 'pools']) assert.deepEqual(afterStartupStats[field], startupStats[field], 'startup preserves ' + field);
   for (const [name, count] of Object.entries(startupCounts)) assert.equal(await rebuiltDb.collection(name).countDocuments(), count, 'startup preserves ' + name);
@@ -312,11 +329,13 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await index.sync(collect);
   assert.equal(await db.collection('txes').findOne({txid: mixedId}), null);
   await assertTransactionCount();
+  await assertMovementCount();
   await rpc('reconsiderblock', [mixedHash]);
   await index.sync(collect);
   assert.equal((await db.collection('addresses').findOne({a_id: transparent})).balance.toString(), before);
   assert.equal(await db.collection('txes').countDocuments(), firstCount);
   await assertTransactionCount();
+  await assertMovementCount();
 
   const faultHash = await mine();
   const faultBlock = await rpc('getblock', [faultHash, 3]);
@@ -326,6 +345,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await assert.rejects(index.connect(faultBlock, faultTxs, () => { throw Error('simulated interrupted write'); }), /interrupted write/);
   assert.deepEqual(await index.state(), beforeState);
   assert.equal(await db.collection('txes').countDocuments(), firstCount);
+  await assertMovementCount();
   await index.sync(collect);
   assert.equal(await db.collection('txes').countDocuments(), firstCount + faultTxs.length);
 
@@ -336,6 +356,12 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   await index.sync(collect);
   assert.equal((await index.state()).hash, replacement);
   assert.equal(await db.collection('nito_blocks').findOne({_id: faultHash}), null);
+  await assertMovementCount();
+  await new Index(conn, db, rpc, 'Nito', {movementMinimum: '0.2'}).refreshMovementCount();
+  assert.equal(countAt(await index.state(), 10000000n), null);
+  await assertMovementCount(20000000n);
+  await movementIndexer.refreshMovementCount();
+  await assertMovementCount();
   const pools = await collect();
   const utxos = await rpc('gettxoutsetinfo', ['none']);
   assert.equal(money.nitoshi(utxos.total_amount).toString(), pools.transparent.chainValueNitoshi);
@@ -362,6 +388,7 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal((await limitDb.collection('addresses').findOne({a_id: 'limit-test'})).balance.toString(), '0');
 
   const settings = require('../../lib/settings');
+  settings.movement_page.movement_table.min_amount = '0.1';
   settings.wallet = cfg;
   settings.explorer_version = require('../../package.json').version;
   settings.markets_page.enabled = true;
@@ -381,8 +408,12 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
     buys: [{price: '0.00000001', quantity: '1284565889.99999999', total: '12.8456588999999999'}],
     sells: [], history: []});
   await require('mongoose').connect(mongo.getUri(rebuiltName));
-  const preservedRichlist = await require('../../lib/nito-store').richlist();
+  const store = require('../../lib/nito-store');
+  const [preservedRichlist, sameTipRichlist] = await Promise.all([store.richlist(), store.richlist()]);
+  assert.deepEqual(sameTipRichlist, preservedRichlist);
   assert.equal(preservedRichlist.balance.find(row => row.a_id === transparent).claim_name, 'Historical transparent label');
+  await rebuiltDb.collection('claimaddresses').updateOne({a_id: transparent}, {$set: {claim_name: 'Updated fixture label'}});
+  assert.equal((await store.richlist()).balance.find(row => row.a_id === transparent).claim_name, 'Updated fixture label');
   await require('mongoose').disconnect();
   await require('mongoose').connect(mongo.getUri(dbName));
   const peerUpdatedAt = new Date();
@@ -510,9 +541,27 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const addressHistory = await (await fetch(base + '/ext/getaddresstxs/' + transparent + '/0/10')).json();
   assert.equal(addressHistory[0].received, '0.25000000');
   assert.equal(addressHistory[0].sent, '0.00000000');
+  const addressApiPath = base + '/ext/getaddresstxs/' + transparent;
+  const ledgerRows = await db.collection('addresstxes').find({a_id: transparent})
+    .sort({blockindex: -1, block_tx_index: -1, txid: 1}).toArray();
+  let runningBalance = ledgerRows.reduce((sum, row) => sum + BigInt(row.amount.toString()), 0n);
+  const expectedBalances = ledgerRows.map(row => {
+    const balance = money.coins(runningBalance);
+    runningBalance -= BigInt(row.amount.toString());
+    return balance;
+  });
+  for (const offset of [0, 1, ledgerRows.length - 2, ledgerRows.length]) {
+    const page = await (await fetch(addressApiPath + '/' + offset + '/2')).json();
+    const internalPage = await (await fetch(addressApiPath + '/' + offset + '/2/internal')).json();
+    const expected = expectedBalances.slice(offset, offset + 2);
+    assert.deepEqual(page.map(row => row.balance), expected);
+    assert.deepEqual(internalPage.data.map(row => row[4]), expected);
+    assert.equal(internalPage.recordsTotal, ledgerRows.length);
+  }
   await rpc('reconsiderblock', [replacement]);
   await index.sync(collect);
   await stop();
+  assert.equal((await fetch(base + '/network')).status, 200);
   assert.equal((await fetch(base + '/ext/getorchardpools')).status, 503);
   assert.doesNotMatch(visibleText(await (await fetch(base + '/info')).text()), /Orchard|Bech32x|getorchardpools/i);
   const offlineTx = await (await fetch(base + '/ext/gettx/' + cases.private.id)).json();

@@ -86,10 +86,7 @@ function get_last_updated_date(show_last_updated, last_updated_field, cb) {
   // check if the last updated date is needed
   if (show_last_updated == true) {
     // lookup the stats record
-    db.get_stats(settings.coin.name, function (stats) {
-      // return the last updated date
-      return cb(stats[last_updated_field]);
-    });
+    return db.get_updated_at(settings.coin.name, last_updated_field, cb);
   } else {
     return cb(null);
   }
@@ -406,8 +403,8 @@ router.get('/movement', function(req, res) {
 router.get('/network', function(req, res) {
   // ensure network page is enabled
   if (settings.network_page.enabled == true) {
-    db.get_stats(settings.coin.name, function(stats) {
-      const successfulUpdate = stats?.network_last_updated || 0;
+    db.get_updated_at(settings.coin.name, 'network_last_updated', function(updatedAt) {
+      const successfulUpdate = updatedAt || 0;
       res.render(
         'network',
         {
