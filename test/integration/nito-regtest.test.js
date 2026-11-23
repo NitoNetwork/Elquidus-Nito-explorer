@@ -121,6 +121,11 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   const index = new Index(conn, db, rpc);
   await index.sync(collect);
   const firstCount = await db.collection('txes').countDocuments();
+  const assertTransactionCount = async () => {
+    const stats = await db.collection('coinstats').findOne({coin: 'Nito', schema_version: 2});
+    assert.equal(stats.txes, await db.collection('txes').countDocuments({schema_version: 2}));
+  };
+  await assertTransactionCount();
   await index.sync(collect);
   assert.equal(await db.collection('txes').countDocuments(), firstCount);
   assert.equal(await db.collection('addresses').countDocuments({a_id: /^(private_orchard|nrt1x)/i}), 0);
@@ -154,7 +159,12 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal(await rebuiltDb.collection('legacy_archive_markets').countDocuments(), 1);
   assert.equal(await rebuiltDb.collection('legacy_archive_networkhistories').countDocuments(), 1);
   assert.equal((await rebuiltDb.listCollections({name: 'legacy_archive_custom_empty'}).toArray()).length, 1);
-  assert.equal(await rebuiltDb.collection('networkhistories').countDocuments(), 0);
+  const canonicalHistory = database => database.collection('networkhistories').find({},
+    {projection: {_id: 0, blockhash: 1, blockindex: 1, chain: 1}}).sort({blockindex: 1}).toArray();
+  const indexedHistory = await canonicalHistory(db);
+  assert.ok(indexedHistory.length > 0);
+  assert.deepEqual(await canonicalHistory(rebuiltDb), indexedHistory,
+    'rebuild regenerates canonical history while the legacy series stays archived');
   await assert.rejects(rebuild({client: conn, source: legacyName, target: rebuiltName, rpc, collect}), /Target must be empty/);
   await rebuild({client: conn, source: legacyName, target: rebuiltName, rpc, collect, resume: true});
   const rollback = await verifyRollback(conn, legacyName, rebuiltName);
@@ -301,10 +311,12 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   assert.equal((await rpc('getblockheader', [mixedHash])).confirmations, -1);
   await index.sync(collect);
   assert.equal(await db.collection('txes').findOne({txid: mixedId}), null);
+  await assertTransactionCount();
   await rpc('reconsiderblock', [mixedHash]);
   await index.sync(collect);
   assert.equal((await db.collection('addresses').findOne({a_id: transparent})).balance.toString(), before);
   assert.equal(await db.collection('txes').countDocuments(), firstCount);
+  await assertTransactionCount();
 
   const faultHash = await mine();
   const faultBlock = await rpc('getblock', [faultHash, 3]);
@@ -453,6 +465,38 @@ test('real Core regtest, exact Mongo indexing, HTTP and recovery', {timeout: 900
   }
   const list = await (await fetch(base + '/ext/getlasttxs/0')).json();
   assert.ok(JSON.stringify(list).includes(cases.private.id));
+  const latest = base + '/ext/getlasttxs/';
+  for (const suffix of ['0/0/0', '0/0/-1', '0/-1/1', '0/0/0.5', '0/0/999999', '0?cursor=invalid', '0?cursor=&limit=0']) {
+    assert.equal((await fetch(latest + suffix)).status, 400, suffix);
+  }
+  const home = await (await fetch(latest + '0/0/10/internal')).json();
+  assert.equal(home.recordsTotal, await db.collection('txes').countDocuments({schema_version: 2}));
+  assert.equal(home.recordsFiltered, home.recordsTotal);
+  assert.deepEqual(home.data.map(row => row[2]), list.slice(0, 10).map(row => row.txid));
+  const lastStart = home.recordsTotal - 4;
+  const last = await (await fetch(latest + '0/' + lastStart + '/10/internal')).json();
+  const lastPublic = await (await fetch(latest + '0/' + lastStart + '/10')).json();
+  assert.equal(last.recordsTotal, home.recordsTotal);
+  assert.equal(lastPublic.length, 4);
+  assert.deepEqual(last.data.map(row => row[2]), lastPublic.map(row => row.txid));
+  const filtered = await (await fetch(latest + '0.1/0/10/internal')).json();
+  const filteredCount = await db.collection('txes').countDocuments({schema_version: 2, total: {$gte: require('../../lib/nito-index').decimal('10000000')}});
+  assert.equal(filtered.recordsFiltered, filteredCount);
+  assert.equal(filtered.data.length, Math.min(filteredCount, 10));
+  const traditional = await (await fetch(latest + '0/0/30')).json();
+  const traversed = [];
+  let cursor = '';
+  for (let i = 0; i < traditional.length; i++) {
+    const page = await (await fetch(latest + '0?cursor=' + cursor + '&limit=1')).json();
+    assert.equal(page.data.length, 1);
+    traversed.push(page.data[0]);
+    cursor = page.nextCursor;
+    if (!cursor) break;
+  }
+  assert.deepEqual(traversed, traditional);
+  const final = await (await fetch(latest + '0?cursor=' +
+    require('../../lib/nito-latest-page').encodeCursor({blockindex: 1, block_tx_index: 0}) + '&limit=10')).json();
+  assert.deepEqual(final, {data: [], nextCursor: null});
   await rpc('invalidateblock', [replacement]);
   assert.equal((await fetch(base + '/ext/getorchardpools')).status, 503);
   const orphanId = (await rpc('getblock', [replacement, 2])).tx[0].txid;

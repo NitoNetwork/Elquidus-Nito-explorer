@@ -23,6 +23,23 @@ Unknown monetary values remain `null` or an HTTP 503 response, never a zero.
 | Exchange adapters | External provider quotes, volume and charts are approximate market information; they do not feed chain accounting |
 | Legacy masternode reward endpoints | HTTP 410 with a replacement address-history route. Nito Core V4 has no masternode reward classification; coinbase outputs must not be labeled as such |
 
+### Transaction pagination
+
+`GET /ext/getlasttxs/:min/:start?/:length?` returns the existing JSON array.
+`min` is a nonnegative decimal amount in coins, `start` is a nonnegative integer,
+and `length` is an integer from 1 through the configured limit (100 by default).
+Out-of-range or malformed parameters return HTTP 400. The database reads for
+a page share a 2.5-second budget. A timeout returns HTTP 503 with no partial
+page. Use a cursor for deep sequential pagination to avoid scanning earlier
+pages. The explorer table uses a count maintained by the indexer for an
+unfiltered list and an indexed count for an amount-filtered list.
+
+For sequential reads, start with `GET /ext/getlasttxs/0?cursor=&limit=25`.
+This mode returns `{data, nextCursor}`. Pass the returned token as `cursor` on
+the next request using the same amount filter. A null token marks the end.
+Tokens are positions in the live canonical chain, so subsequent pages can
+reflect a reorganization. This mode does not calculate a total.
+
 The repository distributes English (`locale/en.json`) only. The new Nito and
 market labels are present in both that catalog and the default locale. Tests
 check completeness of every distributed catalog. Custom operator locales must

@@ -11,6 +11,7 @@ var express = require('express'),
     db = require('./lib/database'),
     package_metadata = require('./package.json'),
     provenance = require('./lib/provenance').resolve({root: __dirname});
+const {parsePage: parseLatestTransactionPage} = require('./lib/nito-latest-page');
 var app = express();
 var apiAccessList = [];
 var viewPaths = [path.join(__dirname, 'views')]
@@ -461,58 +462,33 @@ app.use('/ext/getcurrentprice', function(req, res) {
 });
 
 
-app.use('/ext/getlasttxs/:min', function(req, res) {
-  // check if the getlasttxs api is enabled or else check the headers to see if it matches an internal ajax request from the explorer itself (TODO: come up with a more secure method of whitelisting ajax calls from the explorer)
-  if ((settings.api_page.enabled == true && settings.api_page.public_apis.ext.getlasttxs.enabled == true) || (req.headers['x-requested-with'] != null && req.headers['x-requested-with'].toLowerCase() == 'xmlhttprequest' && req.headers.referer != null && req.headers.accept.indexOf('text/javascript') > -1 && req.headers.accept.indexOf('application/json') > -1)) {
-    var min = req.params.min, start, length, internal = false;
-    // split url suffix by forward slash and remove blank entries
-    var split = req.url.split('/').filter(function(v) { return v; });
-    // determine how many parameters were passed
-    switch (split.length) {
-      case 2:
-        // capture start and length
-        start = split[0];
-        length = split[1];
-        break;
-      default:
-        if (split.length == 1) {
-          // capture start
-          start = split[0];
-        } else if (split.length >= 2) {
-          // capture start and length
-          start = split[0];
-          length = split[1];
-          // check if this is an internal request
-          if (split.length > 2 && split[2] == 'internal')
-            internal = true;
-        }
+app.get('/ext/getlasttxs/:min/:start?/:length?/:format?', async function(req, res) {
+  const config = settings.api_page.public_apis.ext.getlasttxs;
+  const accept = req.get('accept') || '';
+  // Preserve the bundled table when the public API is disabled. These headers
+  // identify the legacy client format and do not grant a larger query budget.
+  const bundledTable = req.params.format === 'internal' &&
+    req.get('x-requested-with')?.toLowerCase() === 'xmlhttprequest' && req.get('referer') &&
+    accept.includes('text/javascript') && accept.includes('application/json');
+  if (!(settings.api_page.enabled && config.enabled) && !bundledTable)
+    return res.end(settings.localization.method_disabled);
 
-        break;
-    }
+  let page;
+  try {
+    page = parseLatestTransactionPage(req.params, req.query, config.max_items_per_query);
+  } catch (_) {
+    return res.status(400).json({error: 'Invalid transaction filter or pagination'});
+  }
 
-    // fix parameters
-    if (typeof length === 'undefined' || isNaN(length) || length > settings.api_page.public_apis.ext.getlasttxs.max_items_per_query)
-      length = settings.api_page.public_apis.ext.getlasttxs.max_items_per_query;
-    if (typeof start === 'undefined' || isNaN(start) || start < 0)
-      start = 0;
-    if (typeof min === 'undefined' || isNaN(min) || min < 0)
-      min  = 0;
-    else
-      try { min = require('./lib/nito-amount').nitoshi(String(min)).toString(); }
-      catch (_) { return res.status(400).json({error: 'Invalid amount filter'}); }
-
-    db.get_last_txs(start, length, min, internal, function(data, count) {
-      // check if this is an internal request
-      if (internal) {
-        // display data formatted for internal datatable
-        res.json({"data": data, "recordsTotal": count, "recordsFiltered": count});
-      } else {
-        // display data in more readable format for public api
-        res.json(data);
-      }
-    });
-  } else
-    res.end(settings.localization.method_disabled);
+  try {
+    const {data, count, nextCursor} = await db.get_last_txs(page);
+    if (page.internal) return res.json({data, recordsTotal: count, recordsFiltered: count});
+    if (page.cursorMode) return res.json({data, nextCursor});
+    return res.json(data);
+  } catch (error) {
+    console.error('Latest transactions query failed:', error.name, error.code || '');
+    return res.status(503).json({error: 'Latest transactions temporarily unavailable'});
+  }
 });
 
 
