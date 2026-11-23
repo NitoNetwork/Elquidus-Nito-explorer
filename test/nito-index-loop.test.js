@@ -3,6 +3,35 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {EventEmitter} = require('node:events');
 const {interval, createIndexSyncLoop} = require('../scripts/index_sync_loop');
+const {Index} = require('../lib/nito-index');
+
+test('indexer initialization creates the compound index for the latest transaction count', async () => {
+  const state = {schema_version: 2, chain: 'regtest', genesis: 'genesis'};
+  const transactionIndexes = [];
+  const db = {
+    command: async () => ({setName: 'regtest'}),
+    createCollection: async () => {},
+    collection: name => ({
+      findOne: async () => state,
+      createIndex: async (keys, options) => {
+        if (name === 'txes') transactionIndexes.push({keys, options});
+      }
+    })
+  };
+  const rpcResponses = {
+    getblockchaininfo: {chain: 'regtest', pruned: false},
+    getindexinfo: {txindex: {synced: true}, coinstatsindex: {synced: true}},
+    getblockhash: 'genesis'
+  };
+  const index = new Index(null, db, async method => rpcResponses[method]);
+
+  await index.init();
+
+  assert.deepEqual(transactionIndexes.find(entry => entry.options?.name === 'nito_v4_schema_total'), {
+    keys: {schema_version: 1, total: 1},
+    options: {name: 'nito_v4_schema_total'}
+  });
+});
 
 test('index loop serializes block sync runs and applies success/error delays', () => {
   const children = [];
