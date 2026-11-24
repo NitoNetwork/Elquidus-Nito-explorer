@@ -28,6 +28,7 @@ html(lang='en')
     script(src='/js/nito-amount.js')
     script(src='/js/nito-supply.js')
     script(src='/js/nito-hashrate.js')
+    script(src='/js/nito-page-refresh.js')
     script(type='text/javascript', src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js', integrity='sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==', crossorigin='anonymous', referrerpolicy='no-referrer')
     script(type='text/javascript', src='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js', integrity='sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p', crossorigin='anonymous')
     script(type='text/javascript', src='/js/custom.js')
@@ -279,7 +280,7 @@ html(lang='en')
           'footer-only': 'true'
         };
 
-        $.ajax({url: '/ext/getsummary', headers: summary_headers, cache: false, success: function(json) {
+        return $.ajax({url: '/ext/getsummary', headers: summary_headers, cache: false, timeout: 10000, success: function(json) {
           const connectionCount = Number(json.connections);
           const connectionLabel = connectionCount === 1
             ? !{JSON.stringify(settings.localization.net_active_connection)}
@@ -318,11 +319,7 @@ html(lang='en')
           fixFooterHeightAndPosition();
         });
 
-        setInterval(function() {
-          update_block_and_connection_stats();
-        }, 60000);
-
-        update_block_and_connection_stats();
+        NitoPageRefresh.watch(update_block_and_connection_stats, {intervalMs: 60000});
         fixFooterHeightAndPosition();
         enableTooltips();
         isDocumentReady = true;
@@ -427,7 +424,7 @@ html(lang='en')
             Accept: 'application/json, text/javascript, */*; q=0.01'
           };
 
-          $.ajax({url: '/ext/getsummary', headers: summary_headers, cache: false, timeout: 10000, success: function(json) {
+          return $.ajax({url: '/ext/getsummary', headers: summary_headers, cache: false, timeout: 10000, success: function(json) {
             if (json.masternodeCountOnline == null)
               json.masternodeCountOnline = '-';
             if (json.masternodeCountOffline == null)
@@ -520,11 +517,7 @@ html(lang='en')
           hideShowPanel('#{settings.panel4}', 'pnlFour');
           hideShowPanel('#{settings.panel5}', 'pnlFive');
 
-          setInterval(function() {
-            update_stats();
-          }, 60000);
-
-          update_stats();
+          NitoPageRefresh.watch(update_stats, {intervalMs: 60000});
         });
     if showNethashChart == true || showDifficultyChart == true
       script.
@@ -540,8 +533,10 @@ html(lang='en')
             return 0;
         }
         function update_network_charts() {
-          $.ajax({
+          return $.ajax({
             url: '/ext/getnetworkchartdata',
+            cache: false,
+            timeout: 10000,
             success: function(result) {
               if (typeof populateNethashChart !== 'undefined' && typeof populateNethashChart === 'function')
                 populateNethashChart(result);
@@ -771,13 +766,10 @@ html(lang='en')
         $(document).ready(function() {
           const setting_reload_chart_seconds = #{settings.shared_pages.page_header.network_charts.reload_chart_seconds};
 
-          if (setting_reload_chart_seconds > 0) {
-            setInterval(function() {
-              update_network_charts();
-            }, (setting_reload_chart_seconds * 1000));
-          }
-
-          update_network_charts();
+          if (setting_reload_chart_seconds > 0)
+            NitoPageRefresh.watch(update_network_charts, {intervalMs: setting_reload_chart_seconds * 1000});
+          else
+            update_network_charts();
         });
     if showNethashChart == true
       script.

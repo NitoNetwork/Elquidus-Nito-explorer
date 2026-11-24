@@ -47,6 +47,8 @@ block content
         scrollX: true,
         ajax: {
           url: '/ext/getlasttxs/#{settings.movement_page.movement_table.min_amount}',
+          headers: {'Cache-Control': 'no-cache'},
+          timeout: 15000,
           beforeSend: function(jqXHR, settings) {
             settings.url = settings.url.substring(0, settings.url.indexOf('?')) + '/' + getParameterByName('start', settings.url) + '/' + getParameterByName('length', settings.url) + '/internal';
             return true;
@@ -98,19 +100,18 @@ block content
 
       var setting_reload_table_seconds = parseInt("#{settings.movement_page.movement_table.reload_table_seconds}");
       if (setting_reload_table_seconds > 0) {
-        setInterval(function () {
-          rtable.api().ajax.reload(null, false);
-        }, (setting_reload_table_seconds * 1000));
+        const refreshOptions = {intervalMs: setting_reload_table_seconds * 1000, immediate: false};
+        NitoPageRefresh.watch(() => NitoPageRefresh.reloadTable(rtable.api()), refreshOptions);
 
         if ('#{settings.movement_page.page_header.show_last_updated}' == 'true') {
-          setInterval(function () {
-            $.ajax({url: '/ext/getlastupdated/movement', headers: { Accept: 'application/json, text/javascript, */*; q=0.01' }, success: function(json) {
+          NitoPageRefresh.watch(function () {
+            return $.ajax({url: '/ext/getlastupdated/movement', headers: { Accept: 'application/json, text/javascript, */*; q=0.01' }, cache: false, timeout: 10000, success: function(json) {
               if (json != null && json.last_updated_date != null)
                 update_last_updated(json.last_updated_date);
               else
                 update_last_updated(0);
             }});
-          }, (setting_reload_table_seconds * 1000));
+          }, refreshOptions);
         }
       }
 
