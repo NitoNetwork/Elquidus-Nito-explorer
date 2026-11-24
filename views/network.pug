@@ -60,8 +60,14 @@ block content
             delete obj.port
           });
 
-          // remove duplicate rows by ip address
-          connectionRows = connectionRows.filter((v, i, a) => a.findIndex(t => (t.address === v.address)) === i);
+          // Reconnecting peers can use a different port. Keep their latest observation.
+          const latestByAddress = new Map();
+          for (const peer of connectionRows) {
+            const previous = latestByAddress.get(peer.address);
+            if (!previous || (Date.parse(peer.createdAt) || 0) > (Date.parse(previous.createdAt) || 0))
+              latestByAddress.set(peer.address, peer);
+          }
+          connectionRows = [...latestByAddress.values()];
         }
 
         var columns = [];
