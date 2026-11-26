@@ -538,28 +538,32 @@ router.get('/orphans', function(req, res) {
 
 router.post('/search', function(req, res) {
   if (settings.shared_pages.page_header.search.enabled == true) {
-    var query = req.body.search.trim();
+    const query = typeof req.body?.search === 'string' ? req.body.search.trim() : '';
+    const notFound = () => route_get_txlist(res, settings.localization.ex_search_error + query);
 
-    if (query.length == 64) {
-      if (query == settings.transaction_page.genesis_tx)
+    if (!query)
+      return notFound();
+
+    // Mainnet 32-byte witness addresses also have 64 characters.
+    if (/^[0-9a-f]{64}$/i.test(query)) {
+      const hash = query.toLowerCase();
+      if (hash == settings.transaction_page.genesis_tx)
         res.redirect('/block/' + settings.block_page.genesis_block);
       else {
-        db.get_tx(query, function(tx) {
+        db.get_tx(hash, function(tx) {
           if (tx)
             res.redirect('/tx/' + tx.txid);
           else {
-            lib.get_block(query, function(block) {
+            lib.get_block(hash, function(block) {
               if (block && block != `${settings.localization.ex_error}: ${settings.localization.check_console}`)
-                res.redirect('/block/' + query);
+                res.redirect('/block/' + hash);
               else {
                 // check wallet for transaction
-                lib.get_rawtransaction(query, function(tx) {
+                lib.get_rawtransaction(hash, function(tx) {
                   if (tx && tx.txid)
                     res.redirect('/tx/' + tx.txid);
-                  else {
-                    // search found nothing so display the tx list page with an error msg
-                    route_get_txlist(res, settings.localization.ex_search_error + query );
-                  }
+                  else
+                    notFound();
                 });
               }
             });
@@ -570,14 +574,15 @@ router.post('/search', function(req, res) {
       db.get_address(query, false, function(address) {
         if (address)
           res.redirect('/address/' + address.a_id);
-        else {
+        else if (/^\d+$/.test(query)) {
           lib.get_blockhash(query, function(hash) {
             if (hash && hash != `${settings.localization.ex_error}: ${settings.localization.check_console}`)
               res.redirect('/block/' + hash);
             else
-              route_get_txlist(res, settings.localization.ex_search_error + query);
+              notFound();
           });
-        }
+        } else
+          notFound();
       });
     }
   } else {
